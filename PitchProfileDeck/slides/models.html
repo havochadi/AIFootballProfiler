@@ -1,0 +1,19 @@
+<section id="models" data-transition="fade" style="background:#F3F6F2;color:#16302A;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:28px">
+<p style="font-size:24px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#0A7A5C">The systems behind it</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.15;color:#16302A">One model for each job</h2>
+<table style="font-family:'IBM Plex Sans', Arial, sans-serif;font-size:26px;color:#16302A">
+<tr style="background:#DCE8E1"><th style="width:22%;font-weight:600">Job</th><th style="width:44%;font-weight:600">Model</th><th style="width:34%;font-weight:600">Where it comes from</th></tr>
+<tr style="background:#FBFCFA"><td>Find people and ball</td><td>YOLOv8x football detector</td><td>Pretrained (Roboflow)</td></tr>
+<tr style="background:#F3F6F2"><td>Track them</td><td>BoT-SORT, camera-motion aware</td><td>Not a learned model here</td></tr>
+<tr style="background:#FBFCFA"><td>Map to the pitch</td><td>HRNetV2-W48, 57 keypoints</td><td>Pretrained (NBJW)</td></tr>
+<tr style="background:#F3F6F2"><td>Split teams</td><td>K-means on shirt colour</td><td>Unsupervised, per half</td></tr>
+<tr style="background:#FBFCFA"><td>Read shirt numbers</td><td>ResNet-34 legibility + PARSeq</td><td>Pretrained</td></tr>
+<tr style="background:#F3F6F2"><td>Tell players apart</td><td>CLIP ViT-B/16, fine-tuned</td><td>Fine-tuned in this project</td></tr>
+<tr style="background:#FBFCFA"><td>Shots, tackles, headers</td><td>T-DEED action spotter</td><td>Fine-tuned in this project</td></tr>
+<tr style="background:#F3F6F2"><td>Archetype percentages</td><td>Label spreading, k-NN graph</td><td>Built here, awaiting labels</td></tr>
+</table>
+<p style="font-size:24px;line-height:1.4;color:#4F6660">Everything runs locally on one NVIDIA GPU. No cloud AI service is used.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1100px;font-size:24px;color:#4F6660">PitchProfile · AAI3001</p>
+<p style="position:absolute;right:128px;bottom:64px;width:200px;text-align:right;font-size:24px;color:#4F6660">5</p>
+<aside>About 60 seconds. Do not read the table; pick three rows. The detector and the pitch-keypoint network are strong pretrained models we use as they are. The two we trained ourselves matter most: a CLIP vision transformer fine-tuned on about six million player thumbnails so it can read shirt numbers and tell teammates apart, and the T-DEED action spotter, fine-tuned for shots, headers and blocks. Tracking is classical BoT-SORT with camera-motion compensation, not a learned model in this setup. The archetype profiler uses label spreading over a nearest-neighbour graph of player statistics, which is how we use only partial labels. NBJW is No-Bells-Just-Whistles. The shot classifier (gradient-boosted trees) is a fallback and is left off the slide.</aside>
+</section>

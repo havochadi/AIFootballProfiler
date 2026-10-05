@@ -1,0 +1,33 @@
+<section id="hard" data-transition="fade" style="background:#E6EFEA;color:#16302A;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<p style="font-size:24px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#0A7A5C">Difficulties we face</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.15;color:#16302A">Why broadcast video is hard</h2>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBFCFA;padding:28px;border:1px solid #CBD9D1;border-top:6px solid #D9730D;border-radius:16px">
+<h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:34px;font-weight:600;color:#16302A">Constant camera cuts</h3>
+<p style="font-size:26px;line-height:1.4;color:#4F6660">The picture cuts about every 3.5 seconds. Only a readable shirt number links a player across cuts.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBFCFA;padding:28px;border:1px solid #CBD9D1;border-top:6px solid #D9730D;border-radius:16px">
+<h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:34px;font-weight:600;color:#16302A">Only part of the pitch</h3>
+<p style="font-size:26px;line-height:1.4;color:#4F6660">Just 54% of the demo half showed a usable pitch view. Players off screen get no statistics.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBFCFA;padding:28px;border:1px solid #CBD9D1;border-top:6px solid #D9730D;border-radius:16px">
+<h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:34px;font-weight:600;color:#16302A">A tiny, hidden ball</h3>
+<p style="font-size:26px;line-height:1.4;color:#4F6660">At 720p the ball is found in 44% of the frames where it is visible, and never when under 10 pixels.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBFCFA;padding:28px;border:1px solid #CBD9D1;border-top:6px solid #D9730D;border-radius:16px">
+<h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:34px;font-weight:600;color:#16302A">Tackles and blocks</h3>
+<p style="font-size:26px;line-height:1.4;color:#4F6660">From 2D positions a tackle looks like any touch. The video model finds about one in eight.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBFCFA;padding:28px;border:1px solid #CBD9D1;border-top:6px solid #D9730D;border-radius:16px">
+<h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:34px;font-weight:600;color:#16302A">Naming every player</h3>
+<p style="font-size:26px;line-height:1.4;color:#4F6660">About half of player time is tied to a shirt number. Striped kits are read worst.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBFCFA;padding:28px;border:1px solid #CBD9D1;border-top:6px solid #D9730D;border-radius:16px">
+<h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:34px;font-weight:600;color:#16302A">Labels, data and compute</h3>
+<p style="font-size:26px;line-height:1.4;color:#4F6660">No archetype labels yet. Training data sits under a SoccerNet NDA. A half takes about 33 minutes.</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1100px;font-size:24px;color:#4F6660">PitchProfile · AAI3001</p>
+<p style="position:absolute;right:128px;bottom:64px;width:200px;text-align:right;font-size:24px;color:#4F6660">7</p>
+<aside>About 60 seconds. This is the honest slide, and the live demo shows several of these directly. Camera cuts and partial views: the Live tracking tab shows boxes dropping out whenever the broadcast cuts away, and 54% of this half was a usable pitch view. The ball is small and often hidden; at 720p we find it in 44% of the frames where it is visible, which limits how many passes can be credited to a player. Tackles and blocks cannot be told apart from ordinary touches using 2D positions, which is why we use a video model, and even that finds roughly one tackle for every eight real ones, so we report them as expected counts, not totals. Identity: about half of player time is tied to a shirt number, striped kits are hardest, and some players are split across several unnumbered tracks. Finally, no archetype labels exist yet, the best training data is under the SoccerNet NDA, and one half takes about 33 minutes on an RTX 3090.</aside>
+</section>
