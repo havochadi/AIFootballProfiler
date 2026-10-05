@@ -1,0 +1,3 @@
+# Official TrackEval pinned to the source audited for the SoccerNet adapter.
+# Install with --no-deps into the existing PitchProfile environment.
+https://github.com/JonathonLuiten/TrackEval/archive/12c8791b303e0a0b50f753af204249e622d0281a.zip

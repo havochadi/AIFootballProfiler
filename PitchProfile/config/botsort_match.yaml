@@ -1,0 +1,16 @@
+# Full-match analysis tracker. Same association settings as botsort_pitchprofile.yaml
+# (adapted from DA-Shaurya/football-player-tracking, MIT); sparse optical-flow camera
+# compensation measured about twice as fast as ORB with equal or better continuity
+# on SoccerNet 720p at 12.5 samples/s.
+tracker_type: botsort
+track_high_thresh: 0.25
+track_low_thresh: 0.1
+new_track_thresh: 0.25
+track_buffer: 30
+match_thresh: 0.85
+fuse_score: true
+gmc_method: sparseOptFlow
+proximity_thresh: 0.5
+appearance_thresh: 0.8
+with_reid: false
+model: auto

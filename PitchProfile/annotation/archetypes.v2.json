@@ -1,0 +1,1229 @@
+{
+  "version": "2.0",
+  "status": "proposal working rubric; freeze with the team before final evaluation",
+  "source_document": "AAI3001_Week_3_Project_Proposal_Final.docx",
+  "source_sha256": "44ebf065c2928ae42a65daeacd31010219ab4f03233f0f1cc092feb8c99bf622",
+  "position_groups": [
+    {
+      "id": "goalkeeper",
+      "name": "Goalkeepers"
+    },
+    {
+      "id": "centre_back",
+      "name": "Centre-backs"
+    },
+    {
+      "id": "full_back",
+      "name": "Full-backs and wing-backs"
+    },
+    {
+      "id": "defensive_midfield",
+      "name": "Defensive midfield"
+    },
+    {
+      "id": "central_midfield",
+      "name": "Central midfield"
+    },
+    {
+      "id": "attacking_midfield",
+      "name": "Attacking midfield"
+    },
+    {
+      "id": "wide_attacker",
+      "name": "Wide attackers"
+    },
+    {
+      "id": "centre_forward",
+      "name": "Centre-forwards"
+    }
+  ],
+  "roles": [
+    {
+      "id": "traditional_keeper",
+      "name": "Traditional goalkeeper",
+      "position_groups": [
+        "goalkeeper"
+      ],
+      "definition": "Prioritises goal protection with relatively limited sweeping and build-up involvement.",
+      "evidence_cues": "Review starting depth and involvement across phases; save percentage alone describes performance.",
+      "sources": [
+        "https://guidetofootball.com/tactics/goalkeeper-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Gianluigi Buffon",
+          "context": "Juventus; a role emphasis, not his whole career",
+          "description": "Buffon recalls Juventus asking him to concentrate on saves rather than his more adventurous play at Parma.",
+          "source": "https://fcbayern.com/en/news/2026/03/interview-with-gianluigi-buffon-for-manuel-neuer-40th-birthday"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The keeper stays behind a compact defence, deals with crosses, then kicks long instead of joining short build-up."
+        }
+      ]
+    },
+    {
+      "id": "sweeper_keeper",
+      "name": "Sweeper keeper",
+      "position_groups": [
+        "goalkeeper"
+      ],
+      "definition": "Leaves the goal area to defend space behind the defensive line.",
+      "evidence_cues": "Check repeated positioning and interventions beyond the penalty area.",
+      "sources": [
+        "https://guidetofootball.com/tactics/goalkeeper-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Manuel Neuer",
+          "context": "Bayern Munich",
+          "description": "His interventions well outside the penalty area illustrate protecting the space behind a high defence.",
+          "source": "https://fcbayern.com/en/news/2025/02/manuel-neuer-the-modern-day-goalkeeping-icon"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "A through ball beats the centre-backs; the keeper races beyond the box to clear before the striker arrives."
+        }
+      ]
+    },
+    {
+      "id": "distribution_keeper",
+      "name": "Distribution keeper",
+      "position_groups": [
+        "goalkeeper"
+      ],
+      "definition": "Participates regularly in building attacks through passing.",
+      "evidence_cues": "Review receiving options, pressure and pass destinations; retain a separate sweeping trait.",
+      "sources": [
+        "https://guidetofootball.com/tactics/goalkeeper-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Ederson",
+          "context": "Manchester City under Guardiola",
+          "description": "His short and long passing makes the goalkeeper an active route for progressing possession.",
+          "source": "https://www.mancity.com/news/mens/ederson-fulham-preview-premier-league-63863644"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The keeper receives a back-pass, draws a forward towards him and finds the free midfielder beyond the press."
+        }
+      ]
+    },
+    {
+      "id": "ball_playing_centre_back",
+      "name": "Ball-playing centre-back",
+      "position_groups": [
+        "centre_back"
+      ],
+      "definition": "Progresses attacks from defence with passes or carries.",
+      "evidence_cues": "Check line-breaking actions and possession context, not just total completed passes.",
+      "sources": [
+        "https://guidetofootball.com/tactics/centre-back-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Leonardo Bonucci",
+          "context": "Juventus back three",
+          "description": "His passes from central defence towards the wings and runners behind the opposition illustrate progression from the back.",
+          "source": "https://learning.coachesvoice.com/cv/modern-centre-back-football-tactics-explained-van-dijk-ramos-dias-bonucci/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "A centre-back carries past the first presser, then passes through midfield to a teammate between the lines."
+        }
+      ]
+    },
+    {
+      "id": "stopper",
+      "name": "Stopper",
+      "position_groups": [
+        "centre_back"
+      ],
+      "definition": "Steps out from the defensive line to confront receivers early.",
+      "evidence_cues": "Compare challenge timing and position with the covering defenders.",
+      "sources": [
+        "https://guidetofootball.com/tactics/centre-back-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Sergio Ramos",
+          "context": "Real Madrid; stepping-out phases",
+          "description": "His aggressive advances from the back line to engage receivers illustrate the stopper behaviour.",
+          "source": "https://learning.coachesvoice.com/cv/modern-centre-back-football-tactics-explained-van-dijk-ramos-dias-bonucci/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "As a striker receives to feet, one centre-back steps forward to challenge while the other protects the space behind."
+        }
+      ]
+    },
+    {
+      "id": "cover_defender",
+      "name": "Cover defender",
+      "position_groups": [
+        "centre_back"
+      ],
+      "definition": "Protects space behind a teammate who engages the attacker.",
+      "evidence_cues": "Review recovery movement and defensive relationships over repeated sequences.",
+      "sources": [
+        "https://guidetofootball.com/tactics/centre-back-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Sergio Ramos",
+          "context": "When his defensive partner engages",
+          "description": "The same analysis describes Ramos covering when his partner is better placed to challenge; the phase changes the role.",
+          "source": "https://learning.coachesvoice.com/cv/modern-centre-back-football-tactics-explained-van-dijk-ramos-dias-bonucci/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "A teammate steps out to tackle; the covering defender drops diagonally to intercept the pass behind that teammate."
+        }
+      ]
+    },
+    {
+      "id": "libero",
+      "name": "Sweeper or libero",
+      "position_groups": [
+        "centre_back"
+      ],
+      "definition": "Acts as a spare defender behind the line; a libero may advance in possession.",
+      "evidence_cues": "Confirm the spare-player structure, then record forward carries separately.",
+      "sources": [
+        "https://guidetofootball.com/tactics/centre-back-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Franz Beckenbauer",
+          "context": "Bayern Munich; historical libero role",
+          "description": "He operated as a free defender and could move forward to influence attacks.",
+          "source": "https://fcbayern.com/de/news/2023/05/unmatched-franz-beckenbauer"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The spare defender starts behind two markers, collects a loose ball and carries into midfield when space opens."
+        }
+      ]
+    },
+    {
+      "id": "wide_centre_back",
+      "name": "Wide centre-back",
+      "position_groups": [
+        "centre_back"
+      ],
+      "definition": "Defends an outside channel within a back three and supports progression.",
+      "evidence_cues": "Verify the back-three role and cover behind the wing-back.",
+      "sources": [
+        "https://guidetofootball.com/tactics/centre-back-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "César Azpilicueta",
+          "context": "Chelsea back-three systems",
+          "description": "His advances from an outside centre-back position illustrate how this role can support wide attacks.",
+          "source": "https://learning.coachesvoice.com/cv/danny-rohl-tactics-and-style-of-play/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The right centre-back covers behind the wing-back, then steps into the outside channel to support an attack."
+        }
+      ]
+    },
+    {
+      "id": "defensive_full_back",
+      "name": "Defensive full-back",
+      "position_groups": [
+        "full_back"
+      ],
+      "definition": "Maintains deeper wide cover and advances relatively selectively.",
+      "evidence_cues": "Compare position across sustained team possessions and defensive transitions.",
+      "sources": [
+        "https://guidetofootball.com/tactics/full-back-and-wing-back-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "César Azpilicueta",
+          "context": "Chelsea under Lampard, 2019/20",
+          "description": "His comparatively restrained right-back role balanced a more attacking left flank; this is a style comparison.",
+          "source": "https://learning.coachesvoice.com/cv/frank-lampard-chelsea-derby-coach/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The left-back advances while the right-back stays alongside the centre-backs to protect against a counter-attack."
+        }
+      ]
+    },
+    {
+      "id": "overlapping_full_back",
+      "name": "Overlapping full-back",
+      "position_groups": [
+        "full_back"
+      ],
+      "definition": "Advances outside the wide attacker to provide width.",
+      "evidence_cues": "Review repeated outside runs, receptions and deliveries.",
+      "sources": [
+        "https://guidetofootball.com/tactics/full-back-and-wing-back-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Trent Alexander-Arnold",
+          "context": "Early Liverpool role under Klopp",
+          "description": "He initially supplied an outside attacking route from right-back before taking on more central duties.",
+          "source": "https://learning.coachesvoice.com/cv/inverted-full-backs-guardiola-cancelo-trent-alexander-arnold-lahm-football-tactics/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The winger comes inside with the ball; the full-back runs beyond him along the touchline to receive and cross."
+        }
+      ]
+    },
+    {
+      "id": "underlapping_full_back",
+      "name": "Underlapping full-back",
+      "position_groups": [
+        "full_back"
+      ],
+      "definition": "Attacks the inside channel while a teammate supplies the width.",
+      "evidence_cues": "Track runs inside the winger and their destinations near the box.",
+      "sources": [
+        "https://guidetofootball.com/tactics/full-back-and-wing-back-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Conor Bradley",
+          "context": "Liverpool; runs beside a wide winger",
+          "description": "When the winger holds his width, Bradley can delay his run and attack the channel inside him.",
+          "source": "https://learning.coachesvoice.com/cv/conor-bradley-position-liverpool/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The winger stays on the touchline; the full-back runs between the opposing full-back and centre-back for a through ball."
+        }
+      ]
+    },
+    {
+      "id": "inverted_full_back",
+      "name": "Inverted full-back",
+      "position_groups": [
+        "full_back"
+      ],
+      "definition": "Moves from the wide defensive line into central midfield in possession.",
+      "evidence_cues": "Confirm repeated central occupation and the return to wide defensive duties.",
+      "sources": [
+        "https://learning.coachesvoice.com/cv/inverted-full-backs-guardiola-cancelo-trent-alexander-arnold-lahm-football-tactics/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Philipp Lahm",
+          "context": "Bayern Munich under Guardiola",
+          "description": "Moving from right-back into midfield gave his teammates another central passing option.",
+          "source": "https://learning.coachesvoice.com/cv/inverted-full-backs-guardiola-cancelo-trent-alexander-arnold-lahm-football-tactics/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "During build-up the right-back joins the holding midfielder centrally, then returns to right-back when the team defends."
+        }
+      ]
+    },
+    {
+      "id": "attacking_wing_back",
+      "name": "Attacking wing-back",
+      "position_groups": [
+        "full_back"
+      ],
+      "definition": "Provides high width from the flank of a back-three structure.",
+      "evidence_cues": "Review the defensive back five and attacking wide coverage.",
+      "sources": [
+        "https://guidetofootball.com/tactics/full-back-and-wing-back-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Victor Moses",
+          "context": "Chelsea under Conte, 2016/17",
+          "description": "His conversion from winger to wing-back illustrates providing attacking width with a back three behind him.",
+          "source": "https://learning.coachesvoice.com/cv/wing-backs-football-tactics-explained-conte-tuchel/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The wing-back advances outside a narrow forward to cross, then recovers into a back five when possession is lost."
+        }
+      ]
+    },
+    {
+      "id": "inverted_wing_back",
+      "name": "Inverted wing-back",
+      "position_groups": [
+        "full_back"
+      ],
+      "definition": "Moves centrally in possession from a wing-back starting role.",
+      "evidence_cues": "Confirm both the wing-back base and recurring midfield involvement.",
+      "sources": [
+        "https://learning.coachesvoice.com/cv/inverted-full-backs-guardiola-cancelo-trent-alexander-arnold-lahm-football-tactics/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "scenario",
+          "title": "Build-up from a back five",
+          "context": "Illustrative sequence; no fixed player comparison",
+          "description": "A wing-back leaves the flank to receive beside the pivot while a teammate maintains attacking width.",
+          "source": "https://learning.coachesvoice.com/cv/inverted-full-backs-guardiola-cancelo-trent-alexander-arnold-lahm-football-tactics/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "After possession is lost, the same player returns outside the three centre-backs. Confirm that starting back-five structure before using this label."
+        }
+      ]
+    },
+    {
+      "id": "anchor",
+      "name": "Holding midfielder or anchor",
+      "position_groups": [
+        "defensive_midfield"
+      ],
+      "definition": "Protects the central area ahead of the defence and supports circulation.",
+      "evidence_cues": "Check screening, positional restraint and cover during teammates' attacks.",
+      "sources": [
+        "https://guidetofootball.com/tactics/defensive-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Sergio Busquets",
+          "context": "Spain v Portugal, 2018 World Cup",
+          "description": "He protected the centre-backs while teammates advanced and offered a safe return pass.",
+          "source": "https://learning.coachesvoice.com/tactics-portugal-spain-ronaldo-costa-de-gea/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "Both number eights join the attack; the pivot stays central, screens the striker and recycles a backward pass."
+        }
+      ]
+    },
+    {
+      "id": "ball_winner",
+      "name": "Ball-winner or destroyer",
+      "position_groups": [
+        "defensive_midfield",
+        "central_midfield"
+      ],
+      "definition": "Seeks to disrupt opposition possession through challenges and pressure.",
+      "evidence_cues": "Review challenge intent, pressing and recovery context; separate attempts from successful tackles.",
+      "sources": [
+        "https://guidetofootball.com/tactics/defensive-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "N’Golo Kanté",
+          "context": "Chelsea; ball-recovery phases against Liverpool",
+          "description": "His tackling and interceptions near the box illustrate the ball-winning trait within a broader midfield role.",
+          "source": "https://www.chelseafc.com/en/news/article/the-debrief--busy-kante-close-to-his-best"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The midfielder closes down a receiver, contests possession and immediately pressures the next opponent if the first challenge fails."
+        }
+      ]
+    },
+    {
+      "id": "regista",
+      "name": "Regista or deep-lying playmaker",
+      "position_groups": [
+        "defensive_midfield"
+      ],
+      "definition": "Directs build-up from deep midfield through receiving and distribution.",
+      "evidence_cues": "Review access to the ball, progression and switches; high pass volume alone is insufficient.",
+      "sources": [
+        "https://learning.coachesvoice.com/cv/what-is-a-regista-explained-jorginho-andrea-pirlo/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Andrea Pirlo",
+          "context": "AC Milan and Juventus",
+          "description": "His deep receiving positions and range of distribution illustrate directing attacks from the base of midfield.",
+          "source": "https://learning.coachesvoice.com/cv/what-is-a-regista-explained-jorginho-andrea-pirlo/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The pivot repeatedly receives from the centre-backs, changes the tempo and switches play to an unmarked winger."
+        }
+      ]
+    },
+    {
+      "id": "half_back",
+      "name": "Half-back",
+      "position_groups": [
+        "defensive_midfield"
+      ],
+      "definition": "Drops from midfield into the defensive line during build-up.",
+      "evidence_cues": "Verify repeated movement relative to centre-backs and return into midfield.",
+      "sources": [
+        "https://guidetofootball.com/tactics/defensive-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Sergio Busquets",
+          "context": "Barcelona v Manchester United, April 2019",
+          "description": "Dropping between Piqué and Lenglet allowed the full-backs to advance during build-up.",
+          "source": "https://learning.coachesvoice.com/tactical-analysis-barcelona-3-manchester-united-0-lionel-messi/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The defensive midfielder drops between two spreading centre-backs to form a temporary three, then steps back into midfield."
+        }
+      ]
+    },
+    {
+      "id": "segundo_volante",
+      "name": "Segundo volante",
+      "position_groups": [
+        "defensive_midfield"
+      ],
+      "definition": "Advances from a double pivot while a partner supplies cover.",
+      "evidence_cues": "Check the deeper starting pair and recurring forward arrivals.",
+      "sources": [
+        "https://guidetofootball.com/tactics/defensive-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Leon Goretzka",
+          "context": "Bayern under Flick; double-pivot attacking runs",
+          "description": "His forward runs from beside Thiago illustrate the advancing member of a deeper midfield pair.",
+          "source": "https://learning.coachesvoice.com/cv/the-4-2-3-1-football-tactics-pochettino-guardiola-flick-southgate/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "One pivot remains behind the ball while his partner runs beyond the number 10 and arrives late in the box."
+        }
+      ]
+    },
+    {
+      "id": "box_to_box",
+      "name": "Box-to-box midfielder",
+      "position_groups": [
+        "central_midfield"
+      ],
+      "definition": "Repeatedly supports attacking and defensive phases across substantial depth.",
+      "evidence_cues": "Review forward arrivals and defensive recovery; distance alone is insufficient.",
+      "sources": [
+        "https://guidetofootball.com/tactics/central-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Jordan Henderson",
+          "context": "Liverpool under Klopp",
+          "description": "His attacking support and recovery work illustrate repeated involvement at both ends of midfield.",
+          "source": "https://learning.coachesvoice.com/cv/number-8-football-tactics-henderson-kroos-modric-iniesta/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The midfielder supports a cutback near the opposition box, then tracks a runner back towards his own penalty area."
+        }
+      ]
+    },
+    {
+      "id": "mezzala",
+      "name": "Mezzala",
+      "position_groups": [
+        "central_midfield"
+      ],
+      "definition": "Moves from central midfield into attacking half-spaces and wide combinations.",
+      "evidence_cues": "Check starting midfield role, creative involvement and side-channel movement.",
+      "sources": [
+        "https://learning.coachesvoice.com/cv/what-is-a-mezzala-explained-de-bruyne-di-maria-pogba/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Kevin De Bruyne",
+          "context": "Manchester City under Guardiola",
+          "description": "His movement into the inside-right channel to create crossing opportunities illustrates this midfield role.",
+          "source": "https://learning.coachesvoice.com/cv/what-is-a-mezzala-explained-de-bruyne-di-maria-pogba/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "Starting beside a deeper pivot, the midfielder drifts outside the opposing central midfielder and combines with the winger."
+        }
+      ]
+    },
+    {
+      "id": "carrilero",
+      "name": "Carrilero",
+      "position_groups": [
+        "central_midfield"
+      ],
+      "definition": "Shuttles laterally to connect play and protect a flank.",
+      "evidence_cues": "Review balancing movement and cover around the wide defender.",
+      "sources": [
+        "https://guidetofootball.com/tactics/central-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Jordan Henderson",
+          "context": "Liverpool; cover beneath Alexander-Arnold",
+          "description": "His lateral support and protection of the right flank provide a comparison for the shuttling trait.",
+          "source": "https://learning.coachesvoice.com/cv/number-8-football-tactics-henderson-kroos-modric-iniesta/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The right-sided midfielder slides towards the touchline to link play, then covers the space vacated by the full-back."
+        }
+      ]
+    },
+    {
+      "id": "free_eight",
+      "name": "Free number eight",
+      "position_groups": [
+        "central_midfield"
+      ],
+      "definition": "Roams from central midfield to support creation in varying zones.",
+      "evidence_cues": "Check repeated rotations and reception zones across phases.",
+      "sources": [
+        "https://guidetofootball.com/tactics/central-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Luka Modrić",
+          "context": "Real Madrid; mobile connecting role",
+          "description": "His movement to connect teammates across the pitch illustrates the roaming and creative elements of this working label.",
+          "source": "https://learning.coachesvoice.com/cv/number-8-football-tactics-henderson-kroos-modric-iniesta/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The midfielder receives on one side, rotates through the centre and supports another combination on the opposite side."
+        }
+      ]
+    },
+    {
+      "id": "attacking_eight",
+      "name": "Attacking number eight",
+      "position_groups": [
+        "central_midfield"
+      ],
+      "definition": "Advances from midfield to support the attack and arrive near goal.",
+      "evidence_cues": "Compare forward arrivals with the player's midfield starting position.",
+      "sources": [
+        "https://guidetofootball.com/tactics/central-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Frank Lampard",
+          "context": "Chelsea; attacking central-midfield reference",
+          "description": "A recognised number eight whose forward involvement is a useful reference for assessing runs from midfield.",
+          "source": "https://learning.coachesvoice.com/cv/number-8-football-tactics-henderson-kroos-modric-iniesta/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The midfielder starts behind the forwards, delays his run and reaches the penalty spot just as a cutback arrives."
+        }
+      ]
+    },
+    {
+      "id": "advanced_playmaker",
+      "name": "Advanced playmaker",
+      "position_groups": [
+        "attacking_midfield"
+      ],
+      "definition": "Creates chances from spaces behind the main striker.",
+      "evidence_cues": "Review between-line receptions and passes that enable attacking opportunities.",
+      "sources": [
+        "https://guidetofootball.com/tactics/attacking-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Mesut Özil",
+          "context": "Arsenal; between-line creation",
+          "description": "His preference for receiving between the lines and supplying teammates illustrates an advanced creator.",
+          "source": "https://learning.coachesvoice.com/premier-league-arsenal-liverpool-mesut-ozil/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The number 10 receives behind the opposition midfield, turns and slips a pass through for the striker."
+        }
+      ]
+    },
+    {
+      "id": "trequartista",
+      "name": "Trequartista",
+      "position_groups": [
+        "attacking_midfield"
+      ],
+      "definition": "Roams between midfield and attack with creative freedom and usually lighter defensive duties.",
+      "evidence_cues": "Review roaming and defensive participation; a central attacking heatmap is insufficient.",
+      "sources": [
+        "https://guidetofootball.com/tactics/trequartista/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Francesco Totti",
+          "context": "Roma, 2000/01",
+          "description": "Creative freedom let him roam between the lines, into the half-spaces and deeper to connect attacks.",
+          "source": "https://www.asroma.com/en/news/58627/matchday-revisited-scudetto-celebrations-in-2001"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The creator leaves his central starting area to find an unmarked pocket while other teammates maintain the defensive structure."
+        }
+      ]
+    },
+    {
+      "id": "enganche",
+      "name": "Enganche",
+      "position_groups": [
+        "attacking_midfield"
+      ],
+      "definition": "Acts as a relatively fixed advanced passing hub.",
+      "evidence_cues": "Compare stable reception zones and teammates' movement around the hub.",
+      "sources": [
+        "https://guidetofootball.com/tactics/attacking-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Juan Román Riquelme",
+          "context": "Boca Juniors under Carlos Bianchi",
+          "description": "Boca used him as their creative reference point; compare his passing-hub behaviour rather than labelling every movement.",
+          "source": "https://www.fifa.com/es/tournaments/mens/club-world-cup/usa-2025/articles/las-lagrimas-del-roman-jugador-la-sonrisa-del-riquelme-presidente"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The playmaker stays in a central pocket and receives repeatedly while forwards and wide players make runs around him."
+        }
+      ]
+    },
+    {
+      "id": "shadow_striker",
+      "name": "Shadow striker",
+      "position_groups": [
+        "attacking_midfield"
+      ],
+      "definition": "Attacks scoring areas from a position behind the centre-forward.",
+      "evidence_cues": "Review runs beyond the striker and box arrivals, not goals alone.",
+      "sources": [
+        "https://guidetofootball.com/tactics/attacking-midfielder-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Dele Alli",
+          "context": "Tottenham v Red Star, October 2019",
+          "description": "Runs beyond Kane from the attacking midfield line illustrate attacking scoring space from behind a striker.",
+          "source": "https://learning.coachesvoice.com/tactical-analysis-tottenham-5-red-star-belgrade-0/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The striker drops towards the ball; the number 10 accelerates past him into the space between the centre-backs."
+        }
+      ]
+    },
+    {
+      "id": "traditional_winger",
+      "name": "Traditional winger",
+      "position_groups": [
+        "wide_attacker"
+      ],
+      "definition": "Supplies touchline width and attacks outside to deliver.",
+      "evidence_cues": "Review wide receptions, outside progression and delivery locations.",
+      "sources": [
+        "https://guidetofootball.com/tactics/winger-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Antonio Valencia",
+          "context": "Manchester United, early 2010s",
+          "description": "Touchline running and crosses for Rooney illustrate his earlier winger role.",
+          "source": "https://www.theguardian.com/football/blog/2010/mar/01/antonio-valencia-stanley-matthews-carling-cup"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The winger receives wide, beats the full-back on the outside and crosses rather than moving into central shooting space."
+        }
+      ]
+    },
+    {
+      "id": "inverted_winger",
+      "name": "Inverted winger",
+      "position_groups": [
+        "wide_attacker"
+      ],
+      "definition": "Receives wide and commonly moves inside onto the stronger foot.",
+      "evidence_cues": "Check footedness and repeated ball-carrying direction.",
+      "sources": [
+        "https://guidetofootball.com/tactics/winger-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Arjen Robben",
+          "context": "Bayern Munich; cutting inside from the right",
+          "description": "His inside-forward play provides a comparison for the specific trait of moving infield onto his left foot.",
+          "source": "https://learning.coachesvoice.com/cv/what-is-an-inside-forward-explained-ronaldo-messi-salah/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "A left-footed right winger receives near the touchline, carries inside and opens a shooting or passing angle."
+        }
+      ]
+    },
+    {
+      "id": "inside_forward",
+      "name": "Inside forward",
+      "position_groups": [
+        "wide_attacker"
+      ],
+      "definition": "Moves from a wide starting position into central scoring areas.",
+      "evidence_cues": "Review diagonal off-ball runs and box occupation.",
+      "sources": [
+        "https://guidetofootball.com/tactics/winger-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Mohamed Salah",
+          "context": "Liverpool under Klopp",
+          "description": "His runs from the right towards central defenders and shooting positions illustrate a wide scorer.",
+          "source": "https://learning.coachesvoice.com/cv/what-is-an-inside-forward-explained-ronaldo-messi-salah/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "As the striker comes short, the wide forward runs diagonally behind the defence and receives close to goal."
+        }
+      ]
+    },
+    {
+      "id": "wide_playmaker",
+      "name": "Wide playmaker",
+      "position_groups": [
+        "wide_attacker"
+      ],
+      "definition": "Creates passing opportunities from a wide or half-space base.",
+      "evidence_cues": "Compare creative distributions with touchline running and crossing.",
+      "sources": [
+        "https://guidetofootball.com/tactics/playmaker-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Hakim Ziyech",
+          "context": "Ajax and Chelsea; right-sided creation",
+          "description": "Moving inside from the right gave him opportunities to create with through balls and deliveries.",
+          "source": "https://learning.coachesvoice.com/cv/hakim-ziyech-chelsea-ajax-tactics/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The wide player receives in a half-space, pauses for runners and threads a pass rather than immediately attacking the byline."
+        }
+      ]
+    },
+    {
+      "id": "pressing_winger",
+      "name": "Pressing winger",
+      "position_groups": [
+        "wide_attacker"
+      ],
+      "definition": "Helps direct opposition build-up through wide pressing duties.",
+      "evidence_cues": "Review pressure timing and blocked passing lanes.",
+      "sources": [
+        "https://guidetofootball.com/tactics/winger-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Kingsley Coman and Serge Gnabry",
+          "context": "Bayern v Chelsea, February 2020",
+          "description": "Their pressure on Chelsea’s outside centre-backs illustrates coordinated pressing from the wings.",
+          "source": "https://learning.coachesvoice.com/tactical-analysis-chelsea-0-bayern-munich-3/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The winger curves his approach to close the full-back while blocking the pass inside, helping trap possession near the touchline."
+        }
+      ]
+    },
+    {
+      "id": "raumdeuter",
+      "name": "Raumdeuter",
+      "position_groups": [
+        "wide_attacker"
+      ],
+      "definition": "Finds attacking space through well-timed movement from a flexible base.",
+      "evidence_cues": "Review repeated unmarked arrivals relative to defenders; touches alone are inadequate.",
+      "sources": [
+        "https://guidetofootball.com/tactics/winger-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Thomas Müller",
+          "context": "Bayern Munich, 2019/20",
+          "description": "His elusive movement into unoccupied spaces illustrates finding opportunities without needing long dribbles.",
+          "source": "https://www.bundesliga.com/en/faq/10-things-on-the-bundesliga/who-are-the-best-bundesliga-strikers-10570"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The attacker waits outside a defender’s view, then moves into the gap created when that defender follows a teammate."
+        }
+      ]
+    },
+    {
+      "id": "poacher",
+      "name": "Poacher",
+      "position_groups": [
+        "centre_forward"
+      ],
+      "definition": "Focuses on finding and finishing chances near goal.",
+      "evidence_cues": "Review box movement and shot locations relative to build-up involvement.",
+      "sources": [
+        "https://guidetofootball.com/tactics/poacher/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Javier Hernández",
+          "context": "Manchester United and Bayer Leverkusen",
+          "description": "His specialist goalscoring role illustrates the poacher comparison.",
+          "source": "https://www.theguardian.com/football/blog/2016/nov/02/javier-hernandez-goalscorer-bayer-leverkusen-tottenham-champions-league-miroslav-klose"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The striker stays near the centre-backs, darts across the near post and finishes a low cross with one touch."
+        }
+      ]
+    },
+    {
+      "id": "target_man",
+      "name": "Target man",
+      "position_groups": [
+        "centre_forward"
+      ],
+      "definition": "Serves as a receiving outlet who secures possession and involves teammates.",
+      "evidence_cues": "Review contested receptions, hold-up sequences and lay-offs; height alone is insufficient.",
+      "sources": [
+        "https://guidetofootball.com/tactics/target-man/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Olivier Giroud",
+          "context": "Chelsea v Swansea, April 2018",
+          "description": "Receiving direct passes and connecting with Hazard provided an outlet beyond Swansea’s midfield.",
+          "source": "https://learning.coachesvoice.com/tactical-analysis-swansea-city-0-chelsea-1/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The forward controls a long pass under pressure, shields it and lays it off to a supporting midfielder."
+        }
+      ]
+    },
+    {
+      "id": "false_nine",
+      "name": "False nine",
+      "position_groups": [
+        "centre_forward"
+      ],
+      "definition": "Drops from the striker line to create an extra midfield option and space for runners.",
+      "evidence_cues": "Observe the vacated space, defensive responses and teammates' runs.",
+      "sources": [
+        "https://guidetofootball.com/tactics/false-nine/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Lionel Messi",
+          "context": "Barcelona under Guardiola",
+          "description": "Dropping from the central forward position created midfield options and space for other attackers.",
+          "source": "https://learning.coachesvoice.com/cv/what-is-a-false-nine-explained-messi-kane-firmino-fabregas/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The nominal striker drops between the lines; a centre-back follows, and a winger attacks the vacated central space."
+        }
+      ]
+    },
+    {
+      "id": "deep_lying_forward",
+      "name": "Deep-lying forward",
+      "position_groups": [
+        "centre_forward"
+      ],
+      "definition": "Drops to connect midfield and attack while retaining a forward role.",
+      "evidence_cues": "Review link play and the surrounding striker structure.",
+      "sources": [
+        "https://guidetofootball.com/tactics/striker-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Harry Kane",
+          "context": "Tottenham v Red Star, October 2019",
+          "description": "Coming towards the ball helped connect play while Alli, Son and Lamela ran beyond him.",
+          "source": "https://learning.coachesvoice.com/tactical-analysis-tottenham-5-red-star-belgrade-0/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "A forward drops to receive, lays the ball off and supports the next attack while a partner keeps the defence occupied."
+        }
+      ]
+    },
+    {
+      "id": "channel_forward",
+      "name": "Advanced or channel-running forward",
+      "position_groups": [
+        "centre_forward"
+      ],
+      "definition": "Threatens space behind the defence from a high starting position.",
+      "evidence_cues": "Review run origins, depth and channel destinations. This is a project working label.",
+      "sources": [
+        "https://guidetofootball.com/tactics/striker-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Timo Werner",
+          "context": "RB Leipzig under Nagelsmann, 2019/20",
+          "description": "His pace and movement towards wider spaces stretched defenders and threatened the space behind them.",
+          "source": "https://www.bundesliga.com/en/faq/10-things-on-the-bundesliga/who-are-the-best-bundesliga-strikers-10570"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "Starting on the last defender’s shoulder, the striker bends his run into the gap between the centre-back and full-back."
+        }
+      ]
+    },
+    {
+      "id": "pressing_forward",
+      "name": "Pressing forward",
+      "position_groups": [
+        "centre_forward"
+      ],
+      "definition": "Leads pressure on the opposition's first build-up line.",
+      "evidence_cues": "Review pressing triggers, angles and supported team pressure.",
+      "sources": [
+        "https://guidetofootball.com/tactics/striker-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Yussuf Poulsen",
+          "context": "RB Leipzig, 2019/20",
+          "description": "His work at the front of Leipzig’s press illustrates a striker contributing to regaining possession.",
+          "source": "https://www.bundesliga.com/en/faq/10-things-on-the-bundesliga/who-are-the-best-bundesliga-strikers-10570"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The striker presses a centre-back on a backward pass, blocks the pivot and directs play towards the team’s pressing trap."
+        }
+      ]
+    },
+    {
+      "id": "second_striker",
+      "name": "Second striker",
+      "position_groups": [
+        "centre_forward"
+      ],
+      "definition": "Works off a leading striker to combine and attack space.",
+      "evidence_cues": "Confirm the partnership and recurring position relative to its leader.",
+      "sources": [
+        "https://guidetofootball.com/tactics/striker-roles/"
+      ],
+      "trainable": true,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Eden Hazard",
+          "context": "Chelsea v Swansea, April 2018",
+          "description": "Playing off Giroud, he offered combinations and carried forward into spaces around the leading striker.",
+          "source": "https://learning.coachesvoice.com/tactical-analysis-swansea-city-0-chelsea-1/"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "The main striker occupies the centre-backs; his partner receives a lay-off and attacks the gap beside him."
+        }
+      ]
+    },
+    {
+      "id": "complete_forward",
+      "name": "Complete forward",
+      "position_groups": [
+        "centre_forward"
+      ],
+      "definition": "Combines several forward behaviours across different situations.",
+      "evidence_cues": "Require repeated evidence of linking, receiving, running and finishing involvement; defer a standalone class.",
+      "sources": [
+        "https://guidetofootball.com/tactics/striker-roles/"
+      ],
+      "trainable": false,
+      "examples": [
+        {
+          "kind": "player_comparison",
+          "title": "Robert Lewandowski",
+          "context": "Bayern Munich, 2019/20",
+          "description": "Finishing in varied ways and dropping to link attacks illustrate several forward behaviours in one player.",
+          "source": "https://www.bundesliga.com/en/faq/10-things-on-the-bundesliga/who-are-the-best-bundesliga-strikers-10570"
+        },
+        {
+          "kind": "scenario",
+          "title": "What it looks like",
+          "context": "Illustrative sequence",
+          "description": "Across separate sequences the forward holds up a direct pass, links a combination, runs behind and attacks a cross. One action is insufficient."
+        }
+      ]
+    }
+  ],
+  "pilot": {
+    "reviewed_seconds": 1200,
+    "supporting_sequences": 3,
+    "cases_per_learned_role": 30,
+    "players_per_learned_role": 10,
+    "matches_per_learned_role": 5,
+    "note": "Planning heuristics, not a sample-size guarantee. Complete forward remains descriptive."
+  },
+  "examples_note": "Player comparisons illustrate selected behaviours in the stated context, not permanent labels. Illustrative sequences are teaching examples, not verified events in the selected footage.",
+  "examples_reviewed": "2026-09-25"
+}

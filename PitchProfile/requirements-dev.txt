@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest==8.4.2
+httpx==0.28.1
+playwright==1.55.0
+pyzipper==0.4.0   # scripts/extract_bas_training.py: SoccerNet BAS zips use AES encryption
+h5py==3.16.0      # scripts/pack_spotter_frames.py: FOOTPASS labels are in HDF5 tactical files

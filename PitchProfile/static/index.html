@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PitchProfile · Scouting room</title><link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/labelling.css"><link rel="stylesheet" href="/static/stadium.css"></head>
+<body>
+<header><a class="brand" href="/"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="3" y="3" width="30" height="30" rx="7"/><path d="M18 3v30M3 11h6v14H3m30-14h-6v14h6"/><circle cx="18" cy="18" r="5"/></svg>Pitch<span>Profile</span></a><span class="tagline">THE SCOUTING ROOM</span><details class="tools-menu"><summary>More tools</summary><div><button data-goto="catalogue">42-role guide</button><button data-goto="intervals">Independent interval reviews</button><button data-goto="analysis">Movement &amp; tactics</button><button data-goto="overview">Source profile &amp; corrections</button><button data-goto="experiments">Interval model evaluation</button><button id="upload-open">Upload a short clip</button></div></details></header>
+<nav aria-label="Main navigation"><button class="active" data-tab="match" aria-current="page">Label players</button><button data-tab="data">Matches</button><button data-tab="learning">Models</button><span id="top-status"></span></nav>
+<div id="notice" role="status" aria-live="polite" hidden></div>
+<div id="job" hidden><div><strong id="job-message"></strong><span id="job-value"></span></div><progress id="job-progress" max="1" value="0"></progress></div>
+<div class="workspace">
+<aside id="player-sidebar"><p class="eyebrow">Your review queue</p><label for="dataset-select">Match / half</label><select id="dataset-select"></select><details class="source-details"><summary>About this source</summary><p id="source-note" class="small muted"></p></details><div id="queue-progress" class="queue-progress" role="status"></div><label for="player-search">Find a player</label><input id="player-search" type="search" placeholder="Name, team or shirt number"><div id="queue-filters"><label>Team<select id="queue-team"><option value="">Both teams</option></select></label><label>Review status<select id="queue-status"><option value="all">All players</option><option value="unlabelled">Not rated yet</option><option value="draft">Drafts</option><option value="labelled">Rated</option></select></label></div><div id="queue-count" class="small muted"></div><div id="players" aria-label="Players"></div><div class="side-note">Confirm the player in the footage before rating their behaviour. Automatic identities can be wrong.</div></aside>
+<main>
+<section id="tab-overview" class="tab" hidden>
+  <div class="heading-row"><div><p id="match-title" class="eyebrow"></p><h1 id="player-name">Choose a player</h1><p id="player-subtitle" class="muted"></p></div><span id="source-kind" class="badge"></span></div>
+  <div class="metrics"><div><span>Position coverage</span><strong id="position-coverage">—</strong><small>Valid observed positions</small></div><div><span>Detection coverage</span><strong id="detection-coverage">—</strong><small>Detections in the eligible interval</small></div><div><span>Observed time</span><strong id="observed-time">—</strong><small>Used in the heatmap</small></div></div>
+  <div class="analysis-grid"><article><div class="article-head"><h2>Where the player was observed</h2><span id="direction-note" class="small"></span></div><canvas id="heatmap" width="840" height="544" aria-label="Observed player heatmap"></canvas><p id="heatmap-note" class="small muted"></p><div id="zones" class="zones"></div></article><article><h2>Archetype assessment</h2><div id="prediction"></div><h3>Supported event records</h3><div id="event-summary"></div><p id="event-note" class="small muted"></p></article></div>
+  <details id="identity-panel"><summary>Confirm or correct player identity</summary><form id="identity-form" class="form-grid"><label>Name<input id="identity-name" required></label><label>Team<input id="identity-team"></label><label>Listed position (free text)<input id="identity-role"></label><label>Archetype position group<select id="identity-group"><option value="">Not set — no archetype prediction until chosen</option></select></label><label>Persistent identity key<input id="identity-key" placeholder="Your dataset namespace and player ID"></label><label>Attack direction in this clip<select id="identity-direction"><option value="unknown">Unconfirmed</option><option value="right">Right</option><option value="left">Left</option></select></label><label class="check"><input type="checkbox" id="identity-verified">Identity checked against a reliable source</label><button class="primary">Save identity</button></form></details>
+  <article class="full"><h2>Video and evidence</h2><div id="media-container"></div><p id="media-note" class="small muted"></p></article>
+  <details id="calibration-panel"><summary>Map the video onto the pitch</summary><p>Choose at least four matching pitch landmarks, spread across the view. Click a landmark in the video frame, then its location on the pitch. Camera alignment will leave failed frames unmapped.</p><div class="form-grid"><label>Reference frame in seconds<input id="cal-ref" type="number" min="0" value="0" step="0.1"></label><label>Interval start<input id="cal-start" type="number" min="0" value="0" step="0.1"></label><label>Interval end<input id="cal-end" type="number" min="0" value="10" step="0.1"></label><button id="load-cal-frame" type="button">Load frame</button></div><div class="cal-grid"><canvas id="cal-image" width="800" height="450" aria-label="Click pitch landmarks in video"></canvas><canvas id="cal-pitch" width="840" height="544" aria-label="Click matching positions on the pitch"></canvas></div><p id="cal-points" class="small">No landmark pairs selected.</p><div class="actions"><button id="cal-undo">Undo pair</button><label class="check"><input id="cal-static" type="checkbox">Camera is stationary throughout this interval</label><button id="cal-save" class="primary">Apply calibration</button></div></details>
+  <details><summary>Add a confirmed event from footage</summary><form id="event-form" class="form-grid"><label>Timestamp in seconds<input id="event-time" type="number" min="0" step="0.1" required></label><label>Event<select id="event-kind"><option>pass</option><option>shot</option><option>tackle</option><option>interception</option><option>run_behind</option><option>other</option></select></label><label>Reviewer<input id="event-reviewer" required></label><label>Evidence note<input id="event-notes"></label><button>Add event</button></form><p class="small muted">These are individually reviewed observations, not a complete event feed. They are kept separate from provider statistics and model features.</p><div id="manual-events"></div></details>
+  <article class="full"><h2>Earlier matches of this player</h2><div id="history"></div><p id="history-note" class="small muted"></p></article>
+</section>
+<section id="tab-match" class="tab">
+  <div class="heading-row workspace-heading"><div><p class="eyebrow">Player labelling</p><h1 id="match-heading">Choose a match to begin</h1></div><div class="actions footage-actions"><button type="button" id="mp-watch" class="primary" disabled>▶ Watch footage</button></div></div>
+  <p id="mp-loading" role="status" hidden>Loading player evidence…</p><button type="button" id="mp-retry" hidden>Retry loading player</button>
+  <div id="match-empty" class="empty"><h2>Start with an analysed match</h2><p>Open a ready half from <a href="#" data-goto="data">Matches</a> to watch and label its players. For reference tracking or short clips, use <a href="#" data-goto="intervals">independent interval reviews</a>.</p></div>
+  <div id="match-content" hidden>
+    <div id="fixture-banner" class="fixture-banner"></div>
+    <details id="match-context-panel" class="match-context"><summary>Match centre · line-ups, score &amp; kit groups</summary>
+      <div class="context-intro"><div><h2>Connect the match, meet the players</h2><p class="small muted">Pull the historical squad and result from ESPN. Then confirm which team wears each detected kit.</p></div><button type="button" id="context-connect" class="primary">Connect match data ↗</button></div>
+      <p id="context-status" role="status" class="small muted"></p>
+      <details class="compact-details"><summary>Use a specific ESPN match link</summary><label>ESPN match link or event ID<input id="context-event" placeholder="https://www.espn.com/soccer/match/_/gameId/…" maxlength="500"></label><label>Competition<select id="context-league"><option value="">Detect from this match</option><option value="eng.1">Premier League</option><option value="uefa.champions">Champions League</option><option value="esp.1">La Liga</option><option value="ita.1">Serie A</option><option value="ger.1">Bundesliga</option><option value="fra.1">Ligue 1</option></select></label></details>
+      <form id="kit-binding" class="form-grid" hidden><label>Kit A <span id="binding-swatch-a" class="swatch"></span><select id="binding-a" required></select></label><label>Kit B <span id="binding-swatch-b" class="swatch"></span><select id="binding-b" required></select></label><label>Confirmed by<input id="binding-reviewer" maxlength="80" required placeholder="Your name"></label><button class="primary">Confirm kit groups</button><p class="small muted">Use the footage and thumbnails to check the kits. A and B are colour clusters, not home and away.</p></form>
+      <details class="compact-details"><summary>View match-day line-ups</summary><div id="official-lineups" class="lineup-grid"></div></details>
+      <details id="manual-team-tools" class="compact-details"><summary>Team names &amp; analysis coverage</summary>
+      <form id="team-names" class="form-grid"><label>Kit group A <span id="team-a-swatch" class="swatch"></span><input id="team-a-name" maxlength="60" required></label><label>Kit group B <span id="team-b-swatch" class="swatch"></span><input id="team-b-name" maxlength="60" required></label><button>Save team names</button></form>
+      <p id="match-coverage" class="small muted"></p><div id="team-table"></div>
+      </details>
+    </details>
+    <details id="naming-panel" class="match-context naming-panel" hidden><summary>Name players · <span id="naming-count"></span></summary>
+      <div class="naming-intro"><p class="small">Each row is one consistent player whose shirt number the model could not read with confidence. Check the pictures, then type the number or choose who he is, and apply. A name covers every moment of that player, in both halves of a whole match, and a number already used on that team joins that player.</p><label for="naming-team">Team<select id="naming-team"><option value="">Both teams</option></select></label></div>
+      <div id="naming-list" class="naming-list"></div>
+      <div class="naming-footer"><p id="naming-status" role="status" class="small muted"></p><button type="button" id="naming-apply" class="primary" disabled>Apply names</button></div>
+      <details id="naming-given" class="compact-details" hidden><summary>Names you gave</summary><div id="naming-given-list"></div></details>
+    </details>
+    <article id="match-player" class="labelling-player" hidden>
+      <div class="heading-row player-heading"><div class="player-dossier"><div id="mp-portrait" class="player-portrait" aria-label="Player portrait"></div><div><p class="eyebrow" id="mp-team"></p><h2 id="mp-name"></h2><p class="muted small" id="mp-sub"></p><p id="mp-identity-status" class="identity-status"></p></div></div><div class="player-navigation"><span id="mp-label-state" class="badge"></span><div class="actions"><button type="button" id="mp-prev" aria-label="Previous player">←</button><button type="button" id="mp-next">Next player →</button></div></div></div>
+      <div class="label-workbench" id="label-workbench">
+        <div class="evidence-column">
+          <div class="watch-panel">
+            <div class="evidence-switch" role="group" aria-label="Evidence view"><button type="button" data-evidence-view="video" aria-pressed="true">▶ Match footage</button><button type="button" data-evidence-view="map" aria-pressed="false">⌖ Stats &amp; maps</button><span class="live-evidence">PLAYER EVIDENCE</span></div>
+            <div id="video-evidence">
+            <div class="video-box"><video id="mp-video" controls preload="auto" playsinline aria-label="Selected player footage"></video><canvas id="mp-video-overlay" aria-hidden="true"></canvas></div>
+            <p id="mp-video-note" class="small muted" role="status">Loading footage…</p>
+            <div class="footage-identity-actions"><button type="button" id="mp-correct-player">Identify player</button><button type="button" id="mp-not-goalkeeper" hidden>This is not the goalkeeper</button><span id="identity-save-status" class="small muted" role="status"></span></div>
+            <details id="mp-video-tools" class="compact-details"><summary>Playback help</summary><div id="mp-video-recovery" class="video-recovery" hidden><button type="button" id="mp-video-reload">Reload footage</button><a id="mp-video-open" class="button" target="_blank" rel="noopener">Open video ↗</a></div></details>
+            <div class="video-toolbar"><button type="button" id="mp-back" aria-label="Back 5 seconds">−5 s</button><button type="button" id="mp-forward" aria-label="Forward 5 seconds">+5 s</button><button type="button" id="mp-appearance">Next appearance</button><label class="speed-label">Speed<select id="mp-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+            <div class="heading-row small"><strong>When this player is visible</strong><span id="mp-playback-time">0:00</span></div><div id="mp-timeline" aria-label="Player appearances"></div><p id="mp-visibility" class="small muted"></p>
+            <details class="compact-details"><summary>Keyboard shortcuts</summary><p class="small">Space / K: play or pause · J / L: back or forward 5 seconds · B: bookmark · Ctrl / ⌘ + Enter: save &amp; next. Shortcuts are inactive while typing.</p></details>
+            </div>
+            <div id="event-evidence" hidden>
+              <div id="event-kind-buttons" class="event-kind-buttons" aria-label="Statistic"></div>
+              <div id="profile-evidence" hidden><h3>Style profile</h3><div id="mp-profile"></div></div>
+              <div id="movement-evidence" hidden><h3>Movement &amp; positioning</h3><p id="movement-coverage" class="small muted"></p><canvas id="mp-heatmap" width="840" height="544" aria-label="Player movement heatmap"></canvas><div id="mp-zones" class="zones"></div><div id="mp-stats"></div></div>
+              <div id="event-map-content"><div id="stat-summary" class="stat-summary"></div>
+              <div class="map-options"><label>Display<select id="event-map-mode"><option value="events">Events &amp; pass routes</option><option value="heatmap">Origin heatmap</option></select></label><label>Direction<select id="event-map-direction"><option value="attack">Attacking right →</option><option value="stadium">Stadium view</option></select></label></div>
+              <div id="event-map-totals" class="event-map-totals"></div>
+              <div id="event-map-legend" class="map-legend" aria-label="Filter by outcome"></div>
+              <div class="event-pitch-wrap"><svg id="event-pitch" viewBox="0 0 1130 760" role="group" aria-label="Interactive event map"></svg><p id="event-map-empty" class="map-empty" hidden></p></div>
+              <div class="map-time-filter"><label>From (min)<input id="event-map-from" type="number" min="0" value="0" step="0.5"></label><label>To (min)<input id="event-map-to" type="number" min="0" step="0.5"></label><button type="button" id="event-map-reset">Whole half</button></div>
+              <p id="event-map-note" class="small muted"></p><div id="map-event-list" class="map-event-list" aria-label="Mapped events"></div>
+              </div>
+            </div>
+          </div>
+          <section id="event-inspector" class="event-inspector" hidden><div class="heading-row"><div><p class="eyebrow">Selected event</p><h3 id="selected-event-title"></h3></div><button type="button" id="selected-event-watch">▶ Watch moment</button></div><p id="selected-event-description" class="small muted"></p><form id="event-outcome-form"><div class="form-grid"><label>Outcome<select id="selected-event-outcome"></select></label><label>Reviewed by<input id="selected-event-reviewer" maxlength="80" required></label></div><label>Evidence note<input id="selected-event-note" maxlength="1000" placeholder="What confirms this outcome?"></label><button class="primary">Save reviewed outcome</button><span id="event-outcome-status" role="status" class="small muted"></span></form><details class="compact-details"><summary>Reported shot outcomes from this match</summary><p class="small muted">Match-clock reference from ESPN. Confirm the corresponding moment in the video before choosing an outcome.</p><div id="reported-player-shots"></div></details></section>
+          <details id="mp-identity" class="evidence-details"><summary>Advanced tracking tools</summary><p class="small">Merge only when two tracks show the same person throughout. This recomputes match statistics.</p><form id="mp-merge" class="form-grid"><label>Merge into or rename to<input id="mp-merge-target" list="mp-identities" maxlength="40" required></label><datalist id="mp-identities"></datalist><button>Apply and recompute</button></form></details>
+          <section class="bookmarks-panel"><div class="heading-row"><h3>Your evidence</h3><button type="button" id="mp-bookmark">+ Bookmark this moment</button></div><p class="small muted">Add a short note about what you saw. Bookmarks are saved with this player's label.</p><div id="mp-bookmarks"></div></section>
+        </div>
+        <form id="mp-label" class="rating-panel"><div class="rating-heading"><p class="eyebrow">Your assessment</p><h3>How does this player play?</h3><p class="small muted">Rate observed behaviour. Open a role for its definition and examples; leave unseen roles unknown.</p><span id="mp-draft-status" hidden></span><div class="rating-fields"><label>Your name / reviewer ID<input id="mp-labeler" maxlength="80" autocomplete="name" required placeholder="Used on your saved labels"></label><label>Position group<select id="mp-group"></select></label></div><p id="mp-role-count" class="small muted"></p></div>
+          <p id="mp-group-warning" class="small identity-warning" hidden></p><div id="mp-roles"></div><details class="compact-details"><summary>Rating summary</summary><div id="mp-mixture" class="bars"></div></details>
+          <label>Overall notes<textarea id="mp-notes" rows="2" maxlength="3000" placeholder="Context, uncertainty, or patterns across clips…"></textarea></label>
+          <details id="mp-estimate-panel" class="compact-details"><summary>Reveal model estimate</summary><p class="small muted">Form your own judgement first. An estimate is a suggestion, not a reference label.</p><div id="mp-prediction"></div></details>
+          <details class="compact-details"><summary>Manage this label</summary><p class="small muted">A saved label replaces the previous assessment for this player in this half. Independent reviewers should use <a href="#" data-goto="intervals">interval reviews</a>.</p><button type="button" id="mp-discard">Discard local draft</button><button type="button" id="mp-unlabel">Remove saved label</button><div id="mp-delete-confirm" hidden><p>Remove this player's saved label? Its history is retained.</p><button type="button" id="mp-delete-yes">Remove label</button><button type="button" id="mp-delete-no">Keep label</button></div></details>
+          <div class="save-bar"><span id="mp-save-state" role="status">Leave unknown when unsure</span><div class="actions"><button type="submit" id="mp-save">Save</button><button type="submit" id="mp-save-next" class="primary">Save &amp; next →</button></div></div>
+        </form>
+      </div>
+    </article>
+
+  </div>
+</section>
+<section id="tab-learning" class="tab" hidden>
+  <p class="eyebrow">Learn from your reviews</p><h1>Models</h1>
+  <p>Save your assessments in <a href="#" data-goto="match">Label players</a>, then fit the model to estimate roles for similar players. The evaluation below measures how well those estimates transfer to other matches; there is no fixed number of labels that guarantees accuracy.</p>
+  <article><h2>Your labelled appearances</h2><div id="learn-summary"></div></article>
+  <article><h2>Fit and evaluate</h2><button id="learn-fit" class="primary">Fit on all analysed players</button><div id="learn-report"></div></article>
+  <article><h2>Estimated profiles</h2><label>Match<select id="learn-dataset"><option value="">All analysed matches</option></select></label><div id="learn-predictions"></div></article>
+</section>
+<section id="tab-analysis" class="tab" hidden>
+  <p class="eyebrow">Observed movement</p><h1>Movement and tactics</h1>
+  <article><h2 id="motion-player">Choose a player</h2><div id="motion-summary"></div>
+    <canvas id="speed-chart" width="840" height="240" aria-label="Observed player speed over time"></canvas>
+    <div id="motion-zones"></div><p id="motion-note" class="small muted"></p><p id="kit-suggestion"></p>
+  </article>
+  <article><h2>Pitch radar and visible team shape</h2>
+    <form id="tactics-form" class="form-grid"><label>Seconds in analysed interval<input id="tactics-time" type="number" min="0" value="0" step="0.1"></label><button>Show positions</button></form>
+    <canvas id="tactics-pitch" width="840" height="544" aria-label="Player positions and team outlines"></canvas>
+    <div id="tactics-teams"></div><p id="tactics-note" class="small muted"></p>
+  </article>
+  <article><h2>Team occupancy</h2><button id="load-occupancy">Build observed occupancy maps on GPU</button><p id="occupancy-note" class="small muted"></p><div id="occupancy-maps" class="analysis-grid"></div></article>
+  <article><h2>Matched SoccerNet events</h2><p id="match-events-note" class="small muted"></p><div id="match-events"></div></article>
+  <div class="actions"><a id="export-mot" class="button" href="#">Export image tracks in MOT format</a><button id="render-overlay">Refresh overlay with kit colours, trails and calibrated speeds</button></div>
+</section>
+<section id="tab-catalogue" class="tab" hidden>
+  <p class="eyebrow">Proposal working rubric · version 2.0</p><h1>42 player archetypes</h1>
+  <p>Browse the full set of roles and the football behaviour used to review them. An interval review offers only the roles compatible with its selected position group; players can have several traits.</p>
+  <label for="catalogue-group">Position group<select id="catalogue-group"><option value="">All position groups</option></select></label>
+  <p class="small muted">Player comparisons illustrate behaviour in the stated context, not permanent labels. Illustrative sequences are teaching examples, not events verified in your footage.</p><p id="catalogue-count" class="small muted" role="status"></p><div id="catalogue-roles" class="catalogue-grid"></div>
+  <p><button type="button" id="catalogue-review" class="primary">Review a player interval</button></p>
+</section>
+<section id="tab-intervals" class="tab" hidden>
+  <p class="eyebrow">Proposal rubric · 42 candidate roles</p><h1>Review a player interval</h1>
+  <p>Select a player, then choose a position group and an exact interval. The form shows only roles compatible with that group; <a href="#" id="review-catalogue">browse all 42 archetypes</a>. Review the matching footage independently. Leave unsupported traits unknown. The pilot uses at least 20 minutes and three timestamped evidence sequences per reviewer.</p>
+  <form id="case-create" class="form-grid">
+    <label>Position group<select id="case-group" required></select></label>
+    <label>Period<input id="case-period" type="number" min="1" value="1" required></label>
+    <label>Start in source seconds<input id="case-start" type="number" min="0" step="0.1" value="0" required></label>
+    <label>End in source seconds<input id="case-end" type="number" min="0.1" step="0.1" value="1200" required></label>
+    <label>Context<input id="case-context" maxlength="3000" placeholder="Formation, opposition and evidence source"></label>
+    <button id="case-create-button" class="primary" disabled>Create interval case</button>
+  </form>
+  <label>Saved intervals for this player<select id="case-select"><option value="">No interval selected</option></select></label>
+  <p id="case-status" role="status"></p>
+  <div id="case-content" hidden>
+    <article><h2>Interval evidence</h2><canvas id="case-heatmap" width="840" height="544" aria-label="Reviewed interval heatmap"></canvas><p id="case-quality"></p><div id="case-media"></div></article>
+    <form id="case-review">
+      <label>Individual reviewer ID<input id="case-reviewer" maxlength="80" required></label>
+      <p class="small muted">Rate every compatible archetype independently from 0-100. A player can score high on several at once — this is not a budget that has to add up to 100.</p>
+      <div id="case-labels" class="label-grid"></div>
+      <h3>Your in-progress mixture</h3><p class="small muted">The rated archetypes above, renormalised to a share of 100% for readability. Primary/secondary roles are computed from consensus, not chosen here.</p><div id="case-mixture" class="bars"></div>
+      <div class="form-grid"><label>Confidence<select id="case-confidence"><option>uncertain</option><option>low</option><option>medium</option><option>high</option></select></label></div>
+      <label>Evidence source<textarea id="case-evidence" rows="2" required maxlength="3000"></textarea></label>
+      <label>Reason for insufficient evidence<textarea id="case-abstain" rows="2" maxlength="3000"></textarea></label>
+      <h3>Supporting sequences</h3><p class="small muted">Times use the same source clock as the interval. Describe the relevant behaviour and opportunity; three distinct sequences are a provisional pilot rule.</p>
+      <div id="case-sequences"></div><button id="case-add-sequence" type="button">Add sequence</button>
+      <label>Review notes<textarea id="case-notes" rows="2" maxlength="3000"></textarea></label>
+      <button id="case-save" class="primary">Save independent interval review</button>
+    </form>
+    <p class="small muted">Other reviews and model suggestions are hidden until you choose to view the assessment.</p>
+    <button id="case-assess">Show assessment after reviewing</button><div id="case-assessment" hidden></div>
+    <details><summary>Resolve a disagreement as a third reviewer</summary><form id="case-adjudicate" class="form-grid"><label>Role<select id="case-adj-label"></select></label><label>Decision (0-100)<input id="case-adj-value" type="number" min="0" max="100" step="1" required></label><label>Third reviewer<input id="case-adj-reviewer" required maxlength="80"></label><label>Reason<input id="case-adj-reason" required maxlength="3000"></label><button>Save interval adjudication</button></form></details>
+  </div>
+  <p><a class="button" href="/api/cases/export">Export interval cases, reviews and rubric</a></p>
+</section>
+
+<section id="tab-experiments" class="tab" hidden>
+  <p class="eyebrow">Measure before claiming</p><h1>Models and evaluation</h1><article><h2>Archetype training</h2><p id="training-readiness"></p><form id="train-form" class="form-grid"><label>Holdout protocol<select id="train-split"><option value="match">Separate matches</option><option value="player">Separate verified players</option></select></label><label>Maximum epochs<input id="train-epochs" type="number" min="1" max="100" value="40"></label><button id="train-button" class="primary">Train and compare models</button></form><p class="small muted">Compares logistic regression, a heatmap CNN, and the same CNN with observation gaps. Unknown labels are masked. Model choice and thresholds use validation data; final scores use held-out groups.</p><div id="training-results"></div></article>
+  <article><h2>Independent reviewer agreement</h2><div id="agreement"></div></article>
+  <article><h2>Executed vision check</h2><div id="vision-check"></div></article>
+  <article><h2>Preparatory neural experiment</h2><div id="reconstruction"></div></article>
+</section>
+<section id="tab-data" class="tab" hidden>
+    <details class="match-context"><summary>Compare players in the selected half</summary>
+      <div class="form-grid"><label>Team<select id="match-team-filter"><option value="">Both teams</option><option value="A">Kit group A</option><option value="B">Kit group B</option></select></label><label>Rates<select id="match-basis"><option value="per90_visible">Per 90 minutes on screen</option><option value="per90">Per 90 minutes of team live play</option><option value="per100_touches">Per 100 touches (on-ball mix)</option></select></label><label>Sort by<select id="match-sort"><option value="visible_seconds">Visible time</option><option value="passes">Passes</option><option value="progressive_passes">Progressive passes</option><option value="carries">Carries</option><option value="dribbles">Dribbles</option><option value="shots">Shots</option><option value="tackles">Tackles</option><option value="interceptions">Interceptions</option><option value="recoveries">Recoveries</option><option value="pressures">Pressures</option><option value="distance_per_min_m">Distance per minute</option><option value="top_speed_kmh">Top speed</option></select></label></div>
+      <div id="match-players"></div><p id="match-note" class="small muted"></p>
+    </details>
+  <p class="eyebrow">Your video library</p><h1>Matches</h1><p>Open an analysed half to start labelling, or analyse a downloaded match on your GPU.</p><article><div class="heading-row"><h2>Downloaded match halves</h2><button type="button" id="library-refresh">Refresh</button></div><label>Find a match<input id="match-search" type="search" placeholder="Team, date or competition"></label><p id="library-count" class="small muted"></p><div id="learn-library"></div></article>
+  <details><summary>Analyse a short interval instead</summary><p id="library-path" class="small muted"></p>
+    <p>Select a downloaded half and analyse an interval directly from the data drive. Start with 60 seconds to check the view and tracking.</p>
+    <form id="library-form" class="form-grid">
+      <label>Match half<select id="library-video" required></select></label>
+      <label>Start in half-relative seconds<input id="library-start" type="number" min="0" value="0" step="0.1" required></label>
+      <label>Seconds to analyse<input id="library-duration" type="number" min="1" max="3600" value="60" required></label>
+      <label>Samples per second<input id="library-hz" type="number" min="0.5" max="15" value="5" step="0.5" required></label>
+      <label>Tracker<select id="library-tracker"><option value="botsort">BoT-SORT with camera-motion compensation</option><option value="bytetrack">ByteTrack baseline</option></select></label>
+      <button class="primary" id="library-analyse">Analyse on GPU</button>
+    </form><p id="library-info" class="small muted"></p><details><summary>Official match events — click to choose an analysis start</summary><div id="library-events"></div></details>
+  </details>
+  <details><summary>Exports &amp; tracking data import</summary><article><h2>Export current work</h2><div class="actions"><a class="button" href="/api/archetypes/export">Download player labels &amp; bookmarks</a><a class="button" href="/api/cases/export">Download interval reviews</a><a id="export-tracks" class="button" href="#">Download selected trajectories</a><button id="export-manifest">Download selected metadata</button></div></article><article><h2>Import another tracking dataset</h2><p>Use a CSV and its metadata JSON following the format in the README. Coordinates must use a 105 by 68 metre pitch. Declare the coordinate orientation, sampling rate and eligible frames for every player.</p><form id="import-form" class="form-grid"><label>Trajectories CSV<input id="import-tracks" type="file" accept=".csv" required></label><label>Metadata JSON<input id="import-manifest" type="file" accept=".json" required></label><button class="primary">Import tracking data</button></form></article><p class="small muted">Provider and reference datasets retain their source descriptions. Review the source details before using them as evidence.</p></details>
+</section>
+</main></div>
+<dialog id="identify-dialog" aria-labelledby="identify-title">
+  <form id="identify-form">
+    <div class="heading-row identify-heading"><div><p class="eyebrow">Player identity</p><h2 id="identify-title">Who is highlighted?</h2></div><button type="button" id="identify-close" aria-label="Close player identification">×</button></div>
+    <div class="identify-layout">
+      <div class="identify-evidence"><canvas id="identify-frame" width="480" height="270" aria-label="Enlarged selected player or paused frame from the footage" hidden></canvas><p id="identify-frame-note" class="small muted"></p><div id="mp-crops" class="identify-crops" aria-label="Example images of this tracked player"></div><p id="identify-current" class="small muted"></p><button type="button" id="identify-watch">Back to footage</button></div>
+      <div class="identify-choices">
+        <div id="identify-roster">
+          <p class="identify-step">1. Choose their team</p><div id="identify-teams" class="identify-teams" role="group" aria-label="Player’s team"></div>
+          <div id="identify-no-roster" hidden><p class="small muted">The match line-up has not been loaded yet. You can still enter a number or correct the role below.</p><button type="button" id="identify-load">Load match line-up</button></div>
+          <label class="identify-step" for="identify-search">2. Find the player</label><input id="identify-search" type="search" placeholder="Shirt number or player name" autocomplete="off">
+          <div id="identify-candidates" class="identify-candidates" aria-label="Match-day players"></div><p id="identify-list-note" class="small muted"></p>
+          <button type="button" id="identify-manual" class="text-action">I only know their number or role</button>
+        </div>
+        <div id="identify-quick" hidden><button type="button" id="identify-roster-back" class="text-action">← Choose from the line-up</button><h3>What do you know about this player?</h3>
+          <div class="identify-role" role="group" aria-label="Player role"><button type="button" data-identity-role="player" aria-pressed="true">Outfield player</button><button type="button" data-identity-role="goalkeeper" aria-pressed="false">Goalkeeper</button></div><input id="correction-role" type="hidden" value="player">
+          <label>Shirt number, if visible<input id="correction-shirt" type="number" min="1" max="99" step="1" placeholder="Unknown"></label>
+          <details id="identify-extra" class="compact-details"><summary>Add a name or note (optional)</summary><label>Name<input id="correction-name" maxlength="100"></label><label>Note<input id="correction-note" maxlength="1000"></label></details>
+        </div>
+        <details id="identify-reviewer-details" class="compact-details"><summary id="identify-reviewer-label">Your name · enter once</summary><label>Your name / reviewer ID<input id="correction-reviewer" maxlength="80" required autocomplete="name" placeholder="Remembered for your next player"></label></details>
+      </div>
+    </div>
+    <div class="identify-footer"><p id="identify-selection" class="identify-selection">Choose a team and player above.</p><p id="identify-duplicate" class="small muted" hidden></p><p class="small muted">Applies to all appearances grouped with this player in this half. Your footage, ratings and bookmarks are kept.</p><p id="correction-status" role="status" class="small muted"></p><div class="actions"><button type="button" id="identify-cancel">Cancel</button><button type="button" id="correction-reset" hidden>Restore model identity</button><button type="submit" id="identify-confirm" class="primary" disabled>Confirm player</button></div></div>
+  </form>
+</dialog>
+<dialog id="upload-dialog"><form id="upload-form"><div class="heading-row"><h2>Analyse recorded footage</h2><button type="button" id="upload-close" aria-label="Close upload">×</button></div><p>Start with a short, continuous match clip. Player identity and pitch mapping can be checked after detection.</p><label>Video file<input name="file" type="file" accept="video/*,.mkv" required></label><label>Match or clip title<input name="title" value="My match clip" required maxlength="160"></label><div class="form-grid"><label>Seconds to analyse<input name="max_seconds" type="number" min="1" max="300" value="30"></label><label>Samples per second<input name="sampling_hz" type="number" min="0.5" max="15" step="0.5" value="5"></label></div><button class="primary">Upload and start analysis</button><p class="small muted">Up to 512 MB per upload. Processing runs on the local computer.</p></form></dialog>
+<script src="/static/app.js"></script>
+<script src="/static/cases.js"></script>
+<script src="/static/analysis.js"></script>
+<script src="/static/match.js"></script>
+<script src="/static/labelling.js"></script>
+<script src="/static/match_context.js"></script>
+<script src="/static/event_maps.js"></script>
+<script src="/static/player_identity.js"></script>
+<script src="/static/naming.js"></script>
+</body></html>

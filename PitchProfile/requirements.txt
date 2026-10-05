@@ -1,0 +1,26 @@
+# Install the CUDA torch/torchvision wheels first (see README.md).
+torch==2.8.0
+torchvision==0.23.0
+fastapi==0.116.1
+uvicorn==0.35.0
+pydantic==2.11.9
+python-multipart==0.0.22
+numpy==2.2.6
+pandas==2.3.2
+scipy==1.16.1
+scikit-learn==1.7.1
+opencv-python==4.12.0.88
+ultralytics==8.3.199
+# ByteTrack dependency: runtime automatic installation is deliberately disabled.
+lap==0.5.12
+# Includes a local FFmpeg executable on supported wheel platforms.
+imageio-ffmpeg==0.6.0
+ijson==3.4.0
+huggingface-hub==0.34.4
+hf-xet==1.6.0
+# Full-match analysis: jersey-number reader (PARSeq) dependencies and model downloads.
+# PARSeq itself is installed with --no-deps by setup.ps1 so its CPU torch pin is ignored.
+timm==0.9.16
+pytorch-lightning==2.5.6
+nltk==3.9.1
+gdown==5.2.0

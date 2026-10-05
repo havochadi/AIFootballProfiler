@@ -1,0 +1,17 @@
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+**/*.log
+PitchProfile/.runtime/
+PitchProfile/.data-location
+PitchProfile/data/annotations.sqlite*
+PitchProfile/data/jobs/
+PitchProfile/data/models/
+PitchProfile/data/raw/
+PitchProfile/data/datasets/soccertrack-*/
+PitchProfile/data/ultralytics_config/
+PitchProfile/Ultralytics/
+PitchProfile/data/datasets/video-*/
+PitchProfile/data/datasets/import-*/
+WorldCup2022/
