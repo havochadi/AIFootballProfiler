@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PitchProfile · Match analysis demo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23132c25'/%3E%3Crect x='6' y='9' width='20' height='14' rx='1.5' fill='none' stroke='%238ce3b6' stroke-width='2'/%3E%3Cpath d='M16 9v14' stroke='%238ce3b6' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#" id="brand">Pitch<span>Profile</span></a>
+  <span class="tagline">Player statistics from broadcast video alone</span>
+  <span class="demo-pill" title="The analysis takes about as long as the match. This demo replays a stored result of a real run.">Demo mode · replaying a real analysis</span>
+</header>
+
+<ol class="steps" aria-label="Progress">
+  <li data-step="upload"><b>1</b> Upload video</li>
+  <li data-step="processing"><b>2</b> Analyse</li>
+  <li data-step="results"><b>3</b> Match report</li>
+</ol>
+
+<main id="app" aria-live="polite"></main>
+
+<footer class="foot">PitchProfile demo · AAI3001 · numbers are the stored output of the real pipeline on one SoccerNet broadcast half. The footage is played from the local drive; none of it is stored in this site.</footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
