@@ -1,4 +1,4 @@
-"""Evaluate the touch/pass/carry/shot logic of football_profiler.match_events on
+"""Evaluate the touch/pass/carry logic of football_profiler.match_events on
 SoccerTrack v2 ground truth: annotated player positions (GSR), the released ball
 track and the Ball Action Spotting (BAS) annotations of match 117092.
 
@@ -120,7 +120,6 @@ def evaluate(people, ball, directions, bas):
         'passes_same_player_1s': match(passes, truth_passes),
         'passes_any_player_1s': match(passes, truth_passes, by_player=False),
         'carries_vs_drive': match(ev[ev.type.isin(['carry', 'dribble'])], bas[bas.label.eq('DRIVE')]),
-        'shots': match(ev[ev.type.eq('shot')], bas[bas.label.eq('SHOT')]),
         'crosses': match(ev[(ev.type == 'pass') & (ev.get('cross') == True)], bas[bas.label.eq('CROSS')]),
         'tackles_same_player_2s': match(ev[ev.type.eq('tackle')], tackles_gt, tol=2.0),
         'tackles_any_player_2s': match(ev[ev.type.eq('tackle')], tackles_gt, tol=2.0, by_player=False),

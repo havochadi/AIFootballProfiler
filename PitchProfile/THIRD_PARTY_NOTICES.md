@@ -68,9 +68,9 @@ None of their code or weights is copied into this repository.
 | Jersey legibility classifier and SoccerNet fine-tuned PARSeq | [mkoshkina/jersey-number-pipeline](https://github.com/mkoshkina/jersey-number-pipeline) published weights | Creative Commons Attribution-NonCommercial 3.0 | Reading shirt numbers to link players across camera cuts; non-commercial use only |
 | PARSeq (`strhub`) model code | [baudm/parseq](https://github.com/baudm/parseq) commit `1902db043c029a7e03a3818c616c06600af574be` | Apache-2.0 | Installed with `--no-deps` to run the PARSeq weights |
 | SoccerNet team ball-action spotting devkit and T-DEED baseline checkpoint | [SoccerNet/sn-teamspotting](https://github.com/SoccerNet/sn-teamspotting) commit `091fed2fc35c33f7489f3596958a2fe385e37d65`; checkpoint from its README (SHA-256 `ed7c558d…1c72a`) | GPL-3.0 | External checkout imported at runtime to spot tackles, blocks, headers, crosses, lofted passes and set pieces; not vendored |
-| CLIP ViT-B/16 image encoder | OpenAI CLIP weights via timm `vit_base_patch16_clip_224.openai` | MIT (weights), timm Apache-2.0 | Frozen features for player re-identification; the projection head on top is trained locally from this project's shirt-number readings |
+| CLIP ViT-B/16 image encoder | OpenAI CLIP weights via timm `vit_base_patch16_clip_224.openai` | MIT (weights), timm Apache-2.0 | Backbone of the identity model (the older frozen-feature re-identification head was retired on 8 October 2026); the projection head on top is trained locally from this project's shirt-number readings |
 
 The jersey weights' non-commercial licence applies to any use of this analysis beyond
 research and teaching. SoccerNet and SoccerTrack datasets keep their own access terms.
-Their labels are used to measure accuracy and, for SoccerNet shot/goal labels, to train the
-shot classifier (`scripts/train_shot_model.py`); they are never an input when footage is analysed.
+Their labels are used to measure accuracy; they are never an input when footage is analysed.
+(The shot classifier they once trained was retired on 8 October 2026.)

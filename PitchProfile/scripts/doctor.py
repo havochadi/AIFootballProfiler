@@ -52,11 +52,11 @@ def main():
         print(f"Full-match analysis models: {models} | jersey reader: {'available' if jersey.available() else 'unavailable'}")
         if not all(models.values()) or not jersey.available():
             print("  (optional) Run scripts/fetch_football_models.py to enable full-match video analysis.")
-        from football_profiler import match_shots
-        shot_model = match_shots.model()
-        print(f"Shot classifier: {'trained ' + shot_model['created'] if shot_model else 'not trained (rule-based shots)'}")
-        if not shot_model:
-            print("  (optional) Run scripts/train_shot_model.py after analysing SoccerNet halves.")
+        from football_profiler import action_spotting
+        spotter = action_spotting.available()
+        print(f"Action spotter (shots, tackles, blocks, headers): {'available' if spotter else 'unavailable'}")
+        if not spotter:
+            print("  (optional) Run scripts/fetch_football_models.py; without it a match has no shots, tackles, blocks or headers.")
         ffmpeg = vision.ffmpeg_executable()
         print(f"FFmpeg: {ffmpeg or 'unavailable'}")
         if not ffmpeg:

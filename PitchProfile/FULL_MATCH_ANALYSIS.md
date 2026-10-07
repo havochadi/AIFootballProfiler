@@ -5,7 +5,8 @@ it can see: heatmap, distance, speeds, time on the ball, passes, carries,
 dribbles, shots, tackles, interceptions, recoveries, pressures and more. The
 analysis reads **only the video**. It uses no tracking feeds, event data,
 line-ups or calibration files. SoccerNet and SoccerTrack annotations serve only
-to train one component (the shot classifier) and to measure accuracy.
+to measure accuracy (they once also trained a shot classifier, retired on 8 October 2026:
+shots now come from the video action spotter alone; see MODELS.md).
 
 The statistics feed the archetype workflow. You label some players with
 archetype percentages, and a semi-supervised model estimates percentages for the

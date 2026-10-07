@@ -17,7 +17,6 @@ import pandas as pd
 from . import match_events as ME
 from . import match_identity as MI
 from . import match_post as MP
-from . import match_shots as SH
 from . import match_stats as MS
 from . import storage as S
 from . import taxonomy as T
@@ -370,8 +369,7 @@ def half_state(identifier, progress=lambda *a: None, confirmed=None):
     meta, hz, frames, people, ball, directions, team_info = stages(
         identifier, progress, keepers=keeper_tracks(track_ev) if track_ev else None)
     progress(.5, 'Detecting touches, passes, shots and duels')
-    shot_model = None if os.environ.get('PITCHPROFILE_NO_SHOT_MODEL') else SH.model_for(meta.get('match_id'))    # the variable is for measuring without it
-    events, spells, pos, people, segments = ME.events(people, ball, directions, hz, frames=frames, shot_model=shot_model)
+    events, spells, pos, people, segments = ME.events(people, ball, directions, hz)
     events, spotted = merge_spotted(d, events, spells, people, ball, directions, hz)
     progress(.65, 'Reading jersey numbers and linking players across cuts')
     confirmed = {**S.read_json(d / 'confirmed_identities.json', {}), **(confirmed or {})}
@@ -395,7 +393,7 @@ def half_state(identifier, progress=lambda *a: None, confirmed=None):
     return {'directory': d, 'meta': meta, 'hz': hz, 'frames': frames, 'people': people, 'ball': ball, 'events': events,
             'spells': spells, 'directions': directions, 'team_info': team_info, 'identity': identity,
             'identities': identities, 'numbers': numbers, 'signatures': signatures, 'evidence': evidence,
-            'live_seconds': float(frames.pitch_view.sum() / hz), 'spotted': spotted, 'shot_model': shot_model,
+            'live_seconds': float(frames.pitch_view.sum() / hz), 'spotted': spotted,
             'reader': 'identity_model' if track_ev else 'legacy'}
 
 
@@ -415,7 +413,6 @@ def postprocess(identifier, progress=lambda *a: None, confirmed=None):
     # Ratings, bookmarks and corrections follow each player to his new id (renames, re-analysis).
     moves = player_moves(old_segments, identity, people.groupby('segment').size().to_dict())
     moved = S.move_player_records(identifier, moves)
-    shot_model = h['shot_model']
     meta['postprocess'] = {'player_moves': moves, 'records_moved': moved, 'version': ANALYSIS_VERSION,
                            'wall_seconds': time.perf_counter() - started,
                            'created': S.now(), 'identities': int(len(set(identity.values()))),
@@ -426,8 +423,7 @@ def postprocess(identifier, progress=lambda *a: None, confirmed=None):
                            'action_spotter': h['spotted'],
                            'appearance_attached_segments': int(identities['appearance_segments'].sum())
                            if 'appearance_segments' in identities else 0,
-                           'shots': 'heuristic' if shot_model is None else
-                           f"{'cross-fitted ' if shot_model.get('cross_fitted') else ''}model {shot_model['created']}"}
+}
     S.write_json(d / 'analysis.json', meta)
     progress(1, 'Match analysis complete')
     return meta
@@ -438,7 +434,29 @@ def postprocess(identifier, progress=lambda *a: None, confirmed=None):
 # labels let a pass read as a free kick), so neither gives a usable count.
 SPOTTER_TYPES = ('tackle', 'block', 'header', 'high_pass', 'throw_in', 'cross', 'shot')
 SHOT_MATCH_S = 1.5
-SHOT_OVERRIDE = os.environ.get('PITCHPROFILE_SHOT_OVERRIDE', 'on') != 'off'    # 'off' credits spotted shots with the picture rule only (for measuring)
+
+
+def drop_shot_transitions(ev, shots):
+    """A possession spell that ends in a shot is not a failed pass.
+
+    The tracking rules turn a release followed by the keeper (or any opponent) taking the ball into
+    an intercepted pass or a clearance, then a recovery or interception by the other side. For each
+    confident spotted shot, those events of the shooting team within SHOT_MATCH_S, and the opponent's
+    recovery or interception that follows them, are removed. Completed passes are kept: they are
+    the passes that set the shot up.
+    """
+    if ev.empty or shots.empty or 'team' not in ev:
+        return ev
+    drop = pd.Series(False, index=ev.index)
+    opponent = ev['opponent'] if 'opponent' in ev else pd.Series(None, index=ev.index, dtype=object)
+    outcome = ev['outcome'] if 'outcome' in ev else pd.Series(None, index=ev.index, dtype=object)
+    for r in shots.itertuples():
+        mine = ((ev.type.eq('pass') & outcome.ne('complete')) | ev.type.eq('clearance')) & ev.team.eq(r.team) \
+            & ((ev.time_s - r.time_s).abs() <= SHOT_MATCH_S)
+        after = ev.type.isin(('recovery', 'interception')) & opponent.isin(set(ev.loc[mine, 'segment'])) \
+            & (ev.time_s - r.time_s).between(0, SHOT_MATCH_S + ME.MAX_PASS_FLIGHT_S)
+        drop |= mine | after
+    return ev[~drop]
 
 
 def merge_spotted(directory, events, spells, people, ball, directions, hz):
@@ -461,24 +479,18 @@ def merge_spotted(directory, events, spells, people, ball, directions, hz):
     ev['source'] = 'rules'
     filled = fill_from_spotter(found, ev) if FILL_FROM_SPOTTER else pd.DataFrame()
     found = found[found.type.isin(SPOTTER_TYPES)].copy()
-    # Shots: on SoccerNet labels the spotter found 0.71/0.70 (precision/recall) against the shot
-    # model's 0.36/0.47 on train+validation halves (0.78/0.63 vs 0.35/0.56 on held-out test
-    # halves), so confident spotted shots replace the model's. The shooter is taken from the
-    # model's release by that team within SHOT_MATCH_S when there is one (tracking knows who
-    # struck it), otherwise the nearest player to the ball at the spot.
+    # Shots come from the spotter alone (on SoccerNet labels, same halves and matching, it scored
+    # F1 0.70 against 0.41 for the shot classifier that used to run here, and the classifier's
+    # release made no difference to who was credited). The shooter is the player at the ball
+    # (action_spotting.attribute); a shot with nobody at the ball stays team-level.
     found = found[~(found.type.eq('shot') & ~found.confident)]
-    rule_shots = ev[ev.type.eq('shot')]
-    for i, r in found[found.type.eq('shot')].iterrows():
-        near = rule_shots[(rule_shots.team == r.team) & ((rule_shots.time_s - r.time_s).abs() <= SHOT_MATCH_S)]
-        if len(near) and SHOT_OVERRIDE:
-            m = near.iloc[int((near.time_s - r.time_s).abs().argmin())]
-            found.loc[i, ['segment', 'view_shot', 'x', 'y']] = [m.segment, m.view_shot, m.x, m.y]
     if found.type.eq('shot').any() and 'x' in found:
         s = found.type.eq('shot')
         goal_x = np.where(found.loc[s, 'attack_sign'] >= 0, 105.0, 0.0)
         found.loc[s, 'distance_to_goal_m'] = np.hypot(goal_x - found.loc[s, 'x'].astype(float),
                                                       34.0 - found.loc[s, 'y'].astype(float))
     ev = ev[~(ev.type.eq('tackle') | ev.type.eq('dispossessed') | ev.type.eq('shot'))]
+    ev = drop_shot_transitions(ev, found[found.type.eq('shot')])
     losers = []
     sp = spells.sort_values('start_s')
     for r in found[found.type.eq('tackle') & found.confident].itertuples():

@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 
 from . import fieldcal as FC
-from . import match_shots as SH
 
 L, W = FC.PITCH_LENGTH, FC.PITCH_WIDTH
 # Tracklet stitching inside one continuous view.
@@ -43,10 +42,6 @@ TACKLE_MAX_GAP_S = .6
 PROGRESSIVE_M = 10.0
 LONG_PASS_M = 30.0
 CARRY_MIN_M = 2.0             # ball moved with one player (SoccerTrack 'Drive' median is 2.9 m)
-SHOT_MIN_SPEED = 10.0         # m/s at release
-SHOT_MAX_DISTANCE_M = 35.0
-SHOT_UNSEEN_DISTANCE_M = 20.0 # central strikes whose flight is never observed
-KEEPER_BOX_M = 16.5
 PRESSURE_RADIUS_M = 3.0
 DRIBBLE_FRONT_M = 2.0        # opponent this close in front of a carrier...
 TAKE_ON_LATERAL_M = 1.2       # ...and in his path
@@ -273,50 +268,13 @@ def _ball_after(pos, view, sample, until):
     return q.sort_values('sample')
 
 
-def _shot(sp, after, nxt, sign):
-    """A strike at goal: fast towards the goal mouth, saved by the keeper, or central and unseen after release."""
-    if sign == 0:
-        return None
-    goal_x = L if sign > 0 else 0.0
-    start = np.array([sp.x1, sp.y1])
-    distance = float(np.hypot(goal_x - start[0], W / 2 - start[1]))
-    if distance > SHOT_MAX_DISTANCE_M:
-        return None
-    base = {'distance_to_goal_m': distance}
-    flight = after[after.time_s - sp.end_s <= .5]
-    if len(flight):
-        end = np.array([flight.ball_x.iat[-1], flight.ball_y.iat[-1]])
-        dt = flight.time_s.iat[-1] - sp.end_s
-        heading = end - start
-        speed = float(np.hypot(*heading) / max(dt, 1e-6))
-        if speed >= SHOT_MIN_SPEED and heading[0] * sign > 0:
-            cross_y = start[1] + (goal_x - start[0]) / heading[0] * heading[1]
-            if W / 2 - 3.66 - 7 <= cross_y <= W / 2 + 3.66 + 7:
-                return {**base, 'speed_ms': speed, 'goal_line_y': float(cross_y), 'evidence': 'flight'}
-    if (nxt is not None and nxt.role == 'goalkeeper' and nxt.team != sp.team and nxt.start_s - sp.end_s <= 2.0
-            and abs(nxt.x0 - goal_x) <= KEEPER_BOX_M):
-        return {**base, 'evidence': 'keeper'}
-    if not len(flight) and distance <= SHOT_UNSEEN_DISTANCE_M and abs(start[1] - W / 2) <= 20.16:
-        return {**base, 'evidence': 'unseen_flight'}
-    return None
-
-
-def shot_candidates(sp, pos, positions, ball, frames, directions, sample_hz):
-    """Feature table of releases that could be shots (see match_shots); positions maps sample -> people."""
-    ctx = SH.Context(frames, ball, positions)
-    signs = [attack_sign(t, directions) for t in sp.team]
-    team_signs = {t: attack_sign(t, directions) for t in ('A', 'B')}
-    return SH.release_table(sp, pos, ctx, signs, MAX_PASS_FLIGHT_S, team_signs, sample_hz)
-
-
-def events(people, ball, directions, sample_hz, frames=None, shot_model='auto'):
+def events(people, ball, directions, sample_hz):
     """Possession spells and derived events for one analysed half.
 
     Returns (events, spells, possession, people, segment table). Coordinates
     are in stadium orientation; 'forward_m' is measured towards the goal the
-    acting team attacks. With per-sample frames (cuts, pitch view) and a
-    trained shot model ('auto' loads it from the weights folder), releases are
-    classified as shots by the model; otherwise by the flight/keeper heuristic.
+    acting team attacks. Shots are not decided here: they come from the video action spotter
+    (match_pipeline.merge_spotted).
     """
     seg_map = stitch(people)
     people = people.assign(segment=people.tracklet.map(seg_map))
@@ -338,17 +296,6 @@ def events(people, ball, directions, sample_hz, frames=None, shot_model='auto'):
                    'attack_sign': sign})
 
     positions = {s: g for s, g in people.groupby('sample')}
-    saved = SH.model() if shot_model == 'auto' else shot_model
-    learned = saved is not None and frames is not None
-    shot_spells, flight_shots = {}, []
-    if learned and len(sp):
-        table = shot_candidates(sp, pos, positions, ball, frames, directions, sample_hz)
-        table['probability'] = SH.predict(saved, table)
-        for r in SH.select_shots(table, saved['threshold']).to_dict('records'):
-            if r['spell'] >= 0:
-                shot_spells[int(r['spell'])] = r
-            else:
-                flight_shots.append(r)
     for i, s in enumerate(sp.itertuples()):
         sign = attack_sign(s.team, directions)
         carry = np.array([s.x1 - s.x0, s.y1 - s.y0])
@@ -367,18 +314,6 @@ def events(people, ball, directions, sample_hz, frames=None, shot_model='auto'):
         if same_view:
             implied = np.hypot(nxt.x0 - s.x1, nxt.y0 - s.y1) / max(nxt.start_s - s.end_s, 1 / sample_hz)
             same_view = implied <= MAX_BALL_SPEED
-        if learned:
-            if i in shot_spells:
-                add('shot', s, **SH.shot_fields(shot_spells[i]))
-                continue
-        else:
-            after = _ball_after(pos, s.view_shot, s.end_sample, s.end_sample + 1.0 * sample_hz)
-            after = after[after.ball_interpolated.eq(False)] if len(after) else after
-            shot = _shot(s, after, nxt if same_view else None, sign)
-            if shot and not (same_view and nxt.team == s.team and nxt.segment != s.segment and
-                             abs((nxt.x0 - (L if sign > 0 else 0))) > 6):
-                add('shot', s, **shot)
-                continue
         if not same_view:
             continue
         if nxt.segment == s.segment:
@@ -414,10 +349,6 @@ def events(people, ball, directions, sample_hz, frames=None, shot_model='auto'):
         ev.append({'type': 'recovery', 'segment': nxt.segment, 'team': nxt.team, 'view_shot': int(nxt.view_shot),
                    'time_s': float(nxt.start_s), 'x': float(nxt.x0), 'y': float(nxt.y0), 'opponent': s.segment,
                    'attack_sign': attack_sign(nxt.team, directions)})
-    # Strikes seen only as a ball flight: the shot is credited without a possession spell.
-    ev += [{'type': 'shot', 'segment': r['segment'], 'team': r['team'], 'view_shot': int(r['view_shot']),
-            'time_s': float(r['time_s']), 'x': float(r['x']), 'y': float(r['y']), **SH.shot_fields(r),
-            'attack_sign': int(r['sign'])} for r in flight_shots]
     ev += _pressures(sp, positions, directions)
     frame = pd.DataFrame(ev)
     if not frame.empty:

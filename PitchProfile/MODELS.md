@@ -21,7 +21,6 @@ spotter, which this project fine-tunes (next section).
 | Shirt-number legibility | Legibility classifier | ResNet-34 | [jersey-number-pipeline](https://github.com/mkoshkina/jersey-number-pipeline) (Koshkina & Elder) | CC BY-NC 3.0 |
 | Shirt-number reading | Jersey PARSeq | PARSeq scene-text recogniser, SoccerNet fine-tune | Same pipeline; base code from [baudm/parseq](https://github.com/baudm/parseq) | CC BY-NC 3.0 weights, Apache-2.0 code |
 | Ball-action spotting (tackles, blocks, headers, crosses, lofted passes, throw-ins, shots, passes, drives) with the acting team | T-DEED team ball-action baseline, used as the starting point for this project's fine-tune (below) | RegNet-Y 200MF with gate-shift fusion + temporal encoder-decoder, 100-frame clips at 796×448, 12.5 frames/s | [SoccerNet/sn-teamspotting](https://github.com/SoccerNet/sn-teamspotting) (SoccerNet 2025 challenge baseline) | GPL-3.0 |
-| Player appearance features | CLIP image encoder | ViT-B/16 (OpenAI weights via timm), frozen | OpenAI CLIP | MIT |
 
 **Tracking** (BoT-SORT, `config/botsort_match.yaml`) is not a learned model in
 this configuration: appearance re-identification is disabled, and motion
@@ -31,10 +30,8 @@ association uses sparse optical-flow camera-motion compensation only.
 
 | Model | What it does | Method | Status as of this session |
 | --- | --- | --- | --- |
-| Shot classifier | Decides whether a possession-spell release or unexplained ball flight is a shot | Gradient-boosted trees (`HistGradientBoostingClassifier`, scikit-learn), 26 features per candidate | Retrained on 28 Sept on the working set: 18 training/validation halves (9 matches), scored on 2 held-out test matches |
 | Ball-action spotter (fine-tuned) | The spotter the pipeline uses (`weights\tdeed_team_bas_ft\checkpoint_best.pt`; the published baseline is used if it is missing) | Fine-tuned from the published checkpoint for 3,000 steps on SoccerNet Ball Action Spotting (5 games) and FOOTPASS (48 games) video under the SoccerNet NDA; FOOTPASS classes as partial labels; tackles and blocks weighted; early backbone stages frozen (`scripts\finetune_action_spotter.py`) | Trained 29 Sept. On held-out games, mean average precision 0.61 → 0.63 (BAS test) and 0.48 → 0.60 (FOOTPASS validation); blocks 0.18 → 0.34, headers 0.64 → 0.76, tackles 0.02 → 0.10 (still weak). Free kicks are not used (`evidence/action_spotter_*.json`, DETECTION_RESEARCH.md section 5) |
 | Player identity model | Reads shirt numbers, gives an appearance embedding that tells teammates apart, and spots goalkeepers, per player thumbnail (`weights\identity_vitb16\model.pt`, `football_profiler/identity_model.py`) | CLIP ViT-B/16 fine-tuned end to end: tens and units digit heads, a 256-d supervised-contrastive embedding (teammates as negatives) and a goalkeeper head; trained on FOOTPASS true identities (all 48 training games, 6.0 million thumbnails of 1,485 players, SoccerNet NDA) plus SN-Jersey-2023 numbers; numbers learned only from thumbnails the legibility classifier finds readable (`scripts\train_identity_models.py --legible-only --jersey`) | Retrained 1 Oct on 48 games (10,000 steps); earlier versions kept as `model_legible19.pt` (19 games, 30 Sept) and `model_v2_all_crops.pt` (every thumbnail, 29 Sept). 48 games against 19: right name 48.9% → 53.0% of player time on FOOTPASS validation, 71.8% → 75.7% on SoccerNet tracking clips. On the 3 held-out FOOTPASS games: appearance matching 98.2% of true tracklets, goalkeepers 90% recall at 99% precision, legible-thumbnail vote right for 88% of grouped player time (74% before). Whole pipeline: right player for 50% of visible player time with 95% of names right (FOOTPASS), 72% with 91% right on SoccerNet tracking clips (DETECTION_RESEARCH.md section 6, `evidence/identity_footpass_final.json`) |
-| Re-identification head | Links player segments whose shirt number was not read to the right numbered player | Two-layer projection on frozen CLIP features, supervised-contrastive loss; labels are this project's own shirt-number readings (semi-supervised; no external identity labels) | Trained on the 7 training matches, evaluated on the 4 validation/test matches (`scripts\train_reid_head.py`, `evidence/reid_head.json`) |
 | Archetype profiler | Estimates each of the 42 archetype percentages for unlabelled players | Label spreading over a k-nearest-neighbour graph of player statistics (per position group); labelled-only k-NN as the comparison baseline | Not yet fitted — 0 players are labelled. Run after labelling in **Label players**, via **Models → Fit on all analysed players** |
 | Interval-review CNN (older, stricter workflow) | Predicts archetype ratings for a manually defined 20-minute interval | Small CNN over a heatmap + engineered features, plus a logistic-regression baseline | Not yet trained — no interval reviews recorded |
 
@@ -56,15 +53,31 @@ association uses sparse optical-flow camera-motion compensation only.
   public feed as reference data — not a model, and not an input to any of the
   models above.
 
+## Retired on 8 October 2026
+
+Removed after measuring each against the model that replaced it. Their weights are archived under
+`weights\_archive` on the data drive, and the evidence files they produced are kept.
+
+| Retired | Replaced by | Why |
+| --- | --- | --- |
+| Shot classifier (gradient-boosted trees) and the hand-written shot rule | The video action spotter (T-DEED) | Same four held-out SoccerNet halves, same labels and matching: spotter F1 0.70 against 0.41 (0.71 against 0.45 at each model's best threshold). The classifier's release made no difference to who was credited with a shot, and removing it left every end-to-end score unchanged (`scripts/compare_shot_vs_spotter.py` is in git history; `evidence/shot_vs_tdeed.json`). |
+| Frozen CLIP encoder and re-identification head | The appearance embedding of the identity model | On SoccerNet tracking clips (6,473 pieces) the old head matched 71.6% against 90.1% for the identity model (`evidence/identity_sn_tracking_mixed_model.json`). It only ran when the identity weights were missing. |
+| Spotter fine-tune `tdeed_team_bas_ft2` and five older identity-model checkpoints | `tdeed_team_bas_ft`, `identity_vitb16/model.pt` | `ft2` was lower on FOOTPASS validation (0.585 against 0.604 mean average precision). |
+
+Shots, tackles, blocks and headers now come from the action spotter alone, and `analyse()` runs it
+as part of the analysis job (`match_pipeline.spot_actions`). Without the spotter's devkit and
+checkpoint a half has no shots, tackles, blocks or headers; `scripts/doctor.py` reports whether it is available.
+
+The hand-written tackle rules stay in `match_events.py`: they share the logic that tells an
+interception from a pass, and the spotter's tackles replace them whenever it has run.
+
 ## Where to look in the code
 
 - `football_profiler/football_models.py` — detector/keypoint model loading.
 - `football_profiler/jersey.py` — shirt-number legibility + PARSeq.
-- `football_profiler/match_shots.py` / `scripts/train_shot_model.py` — shot classifier.
 - `football_profiler/action_spotting.py` / `scripts/spot_actions.py` / `scripts/evaluate_action_spotter.py` — ball-action spotter.
 - `football_profiler/spotter_data.py` / `scripts/pack_spotter_frames.py` / `scripts/finetune_action_spotter.py` /
   `scripts/evaluate_spotter_labelled.py` — spotter fine-tuning data, training and held-out measurement.
-- `football_profiler/reid.py` / `scripts/train_reid_head.py` — appearance re-identification.
 - `football_profiler/match_movement.py`, `match_profiles.py` — off-ball runs, style profiles.
 - `football_profiler/semisupervised.py` — archetype label spreading.
 - `football_profiler/learning.py` — interval-review CNN.

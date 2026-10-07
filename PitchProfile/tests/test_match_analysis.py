@@ -12,7 +12,6 @@ from football_profiler import match_events as ME
 from football_profiler import match_identity as MI
 from football_profiler import match_pipeline as MPL
 from football_profiler import match_post as MP
-from football_profiler import match_shots as SH
 from football_profiler import match_stats as MS
 from football_profiler import semisupervised as SS
 from football_profiler import storage as S
@@ -161,7 +160,7 @@ def scenario():
     return pd.DataFrame(people), b, directions, hz
 
 
-def test_touch_based_events_pass_interception_and_shot():
+def test_touch_based_events_pass_and_interception():
     people, ball, directions, hz = scenario()
     ev, spells, pos, pp, seg = ME.events(people, ball, directions, hz)
     who = lambda s: re.sub(r'^seg-|-v\d+$', '', s) if isinstance(s, str) else s
@@ -173,48 +172,22 @@ def test_touch_based_events_pass_interception_and_shot():
     assert [who(s) for s in intercepted.segment] == ['A2']
     assert [who(s) for s in ev[ev.type == 'interception'].segment] == ['B1']
     assert 'B1' in [who(s) for s in ev[ev.type == 'recovery'].segment]
-    shots = ev[ev.type == 'shot']
-    assert [who(s) for s in shots.segment] == ['A3']
-    assert shots.distance_to_goal_m.iat[0] == pytest.approx(11.6, abs=1)
+    assert not (ev.type == 'shot').any()             # shots come from the video spotter, not from tracking rules
     # A ball rolling past B9 without changing course is not a touch.
     assert 'B9' not in {who(s) for s in spells.segment}
 
 
-class _ShotModel:
-    """Stand-in classifier: every candidate release within 15 m of goal is a shot."""
-
-    def predict_proba(self, X):
-        p = (X[:, SH.FEATURES.index('dist_goal')] < 15).astype(float)
-        return np.c_[1 - p, p]
-
-
-def test_learned_shot_model_calls_releases_and_unexplained_flights():
-    people, ball, directions, hz = scenario()
-    frames = pd.DataFrame({'sample': range(64), 'time_s': np.arange(64) / hz,
-                           'shot': (np.arange(64) >= 50).astype(int), 'pitch_view': True})
-    saved = {'model': _ShotModel(), 'threshold': .5}
-    who = lambda s: re.sub(r'^seg-|-v\d+$', '', s)
-    ev, *_ = ME.events(people, ball, directions, hz, frames=frames, shot_model=saved)
-    shots = ev[ev.type == 'shot']
-    assert [(who(s), e) for s, e in zip(shots.segment, shots.evidence)] == [('A3', 'model')]
-    assert shots.probability.iat[0] == 1.0
-    # The strike is seen only in flight (no touch before it): credited to the nearest attacker.
-    flight_only = ball[(ball['sample'] < 50) | (ball['sample'] >= 60)]
-    ev, sp, *_ = ME.events(people, flight_only, directions, hz, frames=frames, shot_model=saved)
-    shots = ev[ev.type == 'shot']
-    assert 'A3' not in {who(s) for s in sp.segment}
-    assert [(who(s), e) for s, e in zip(shots.segment, shots.evidence)] == [('A3', 'model_flight')]
-
-
-def test_shot_model_is_cross_fitted_for_training_matches(tmp_path, monkeypatch):
-    import pickle
-    monkeypatch.setenv('PITCHPROFILE_WEIGHTS', str(tmp_path))
-    assert SH.model_for('soccernet:any') is None
-    saved = {'model': 'final', 'threshold': .5, 'features': SH.FEATURES, 'features_version': SH.FEATURES_VERSION,
-             'created': 'now', 'fold_models': {'league/2015/game': 'fold'}}
-    (tmp_path / SH.MODEL_FILE).write_bytes(pickle.dumps(saved))
-    assert SH.model_for('soccernet:league/2015/game')['model'] == 'fold'
-    assert SH.model_for('soccernet:league/2016/other')['model'] == 'final'
+def test_spotted_shot_removes_the_rule_events_of_its_transition():
+    ev = pd.DataFrame([
+        {'type': 'pass', 'team': 'A', 'segment': 'A3', 'time_s': 10.0, 'outcome': 'intercepted'},     # the release itself
+        {'type': 'recovery', 'team': 'B', 'segment': 'B1', 'time_s': 11.0, 'opponent': 'A3'},          # the keeper's recovery
+        {'type': 'pass', 'team': 'A', 'segment': 'A2', 'time_s': 9.5, 'outcome': 'complete'},          # the set-up pass stays
+        {'type': 'pass', 'team': 'A', 'segment': 'A1', 'time_s': 30.0, 'outcome': 'intercepted'},      # another moment
+        {'type': 'interception', 'team': 'B', 'segment': 'B2', 'time_s': 12.0, 'opponent': 'A9'},      # another transition
+        {'type': 'clearance', 'team': 'B', 'segment': 'B4', 'time_s': 10.1, 'outcome': 'cleared'}])    # the other team's
+    shots = pd.DataFrame([{'team': 'A', 'time_s': 10.2}])
+    assert list(MPL.drop_shot_transitions(ev, shots).segment) == ['A2', 'A1', 'B2', 'B4']
+    assert len(MPL.drop_shot_transitions(ev, shots.iloc[0:0])) == len(ev)             # no shot, nothing removed
 
 
 def test_stats_count_passes_and_scale_per_90():

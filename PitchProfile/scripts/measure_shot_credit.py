@@ -1,31 +1,25 @@
-r"""Measure who the shots are credited to with and without the shot classifier's release (FOOTPASS validation halves).
+r"""Measure end-to-end crediting on the FOOTPASS validation halves under a variant of the pipeline.
 
 Re-runs the post-processing of the six analysed FOOTPASS halves under one variant, then scores per-player
 actions with evaluate_identity_footpass.py (report evidence/identity_footpass_<tag>.json).
-  classifier  default: a spotted shot takes the shooter and position of the classifier's release within 1.5 s
-  picture     PITCHPROFILE_SHOT_OVERRIDE=off: the picture rule only (box holding the ball, else nearest player)
-  rule        PITCHPROFILE_NO_SHOT_MODEL=1: the override uses the hand-written shot rule's releases instead
+  current     the pipeline as it is
   ballfirst   the ball candidates before redetect_ball (raw_ball_first.csv.gz), kept as raw_ball_current.csv.gz for restoring
   nolegacy    PITCHPROFILE_NO_LEGACY_READER=1: players are named without the ResNet-34 + PARSeq readings
 
-Usage (from PitchProfile/): .\.venv\Scripts\python.exe scripts\measure_shot_credit.py classifier|picture|rule|nolegacy|ballfirst
-Leaves the datasets analysed with that variant: finish by running it once more with `classifier`.
+Usage (from PitchProfile/): .\.venv\Scripts\python.exe scripts\measure_shot_credit.py current|nolegacy|ballfirst
+Leaves the datasets analysed with that variant: finish by restoring the saved files, or running it once more with `current`.
 """
 import os, subprocess, sys
 from pathlib import Path
 
 variant = sys.argv[1]
 env = dict(os.environ)
-env.pop('PITCHPROFILE_SHOT_OVERRIDE', None); env.pop('PITCHPROFILE_NO_SHOT_MODEL', None); env.pop('PITCHPROFILE_NO_LEGACY_READER', None)
-if variant == 'picture':
-    env['PITCHPROFILE_SHOT_OVERRIDE'] = 'off'
-elif variant == 'rule':
-    env['PITCHPROFILE_NO_SHOT_MODEL'] = '1'
-elif variant == 'ballfirst':
+env.pop('PITCHPROFILE_NO_LEGACY_READER', None)
+if variant == 'ballfirst':
     pass                                            # raw_ball.csv.gz is swapped for raw_ball_first.csv.gz below (the pre-redetection candidates)
 elif variant == 'nolegacy':
     env['PITCHPROFILE_NO_LEGACY_READER'] = '1'      # naming without the ResNet-34 + PARSeq readings
-elif variant != 'classifier':
+elif variant != 'current':
     raise SystemExit(__doc__)
 root = Path(__file__).resolve().parents[1]
 if variant == 'ballfirst':
@@ -46,4 +40,4 @@ code = ("import sys; sys.path.insert(0, r'%s'); sys.path.insert(0, r'%s')\n"
         "        MP.postprocess(f'fp-val-{g}-h{h}')\n"
         "print('postprocess done')\n") % (root, root / 'scripts')
 subprocess.run([sys.executable, '-c', code], env=env, check=True, cwd=root)
-subprocess.run([sys.executable, 'scripts/evaluate_identity_footpass.py', '--split', 'VAL', '--tag', f'shotcredit_{variant}'], env=env, check=True, cwd=root)
+subprocess.run([sys.executable, 'scripts/evaluate_identity_footpass.py', '--split', 'VAL', '--tag', f'variant_{variant}'], env=env, check=True, cwd=root)
