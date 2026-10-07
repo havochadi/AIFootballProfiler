@@ -8,8 +8,8 @@ Numbers: each true track is read by the legacy reader (football_profiler.jersey,
 thresholds) and the identity model (football_profiler.identity_model): share named, and right.
 Appearance: tracks are cut into PIECE_S-second pieces; each piece is hidden and matched to its
 side's players in the same game half, each player represented by his other pieces that are not
-on screen at the same time (the constraint the pipeline uses), with the legacy appearance head
-(football_profiler.reid) and with the identity model. Report: evidence/identity_sn_tracking_<tag>.json.
+on screen at the same time (the constraint the pipeline uses), with the identity model (the earlier
+legacy appearance head was retired; its results stay in evidence/identity_sn_tracking_*.json). Report: evidence/identity_sn_tracking_<tag>.json.
 
 Usage (from PitchProfile/):
   .\\.venv\\Scripts\\python.exe scripts\\evaluate_identity_sn_tracking.py [--tag current] [--clips 49]
@@ -117,7 +117,6 @@ def main():
     from football_profiler import jersey as J
     from football_profiler import match_identity as MI
     from football_profiler import identity_model as IM
-    from football_profiler import reid as R
 
     def number_result(pred):
         visible = truth >= 0
@@ -140,8 +139,7 @@ def main():
     pk = [k for k in pieces if isinstance(pieces[k]['player'][3], int)]
     pgroups = {i: pieces[k]['imgs'] for i, k in enumerate(pk)}
     meta = pd.DataFrame([{k2: pieces[k][k2] for k2 in ('player', 'side', 'clip', 't0', 't1')} for k in pk])
-    for name, embed in (('legacy_head', lambda g: R.embed_groups(g) if R.available() else {}),
-                        ('identity_model', lambda g: {i: IM.embedding(e) for i, e in IM.evidence(g).items()})):
+    for name, embed in (('identity_model', lambda g: {i: IM.embedding(e) for i, e in IM.evidence(g).items()}),):
         emb = embed(pgroups)
         if not emb:
             continue

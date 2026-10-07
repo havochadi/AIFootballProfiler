@@ -3,9 +3,9 @@
 Files go to the data-drive weights folder (football_profiler.football_models.weights_dir)
 and the NBJW calibration and SoccerNet team-spotting code to its third_party folder; nothing
 is written into the project. Already-present files with the right hash are kept. The CLIP
-backbone of the re-identification embeddings is fetched by timm on first use into
-weights/hf; the re-identification head and the shot classifier are trained locally
-(scripts/train_reid_head.py, scripts/train_shot_model.py).
+backbone of the identity model is fetched by timm on first use into
+weights/hf; the identity model and the shot classifier are trained locally
+(scripts/train_identity_models.py, scripts/train_shot_model.py).
 
 Usage (from PitchProfile/):
   .\\.venv\\Scripts\\python.exe scripts\\fetch_football_models.py

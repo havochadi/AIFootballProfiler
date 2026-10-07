@@ -5,14 +5,14 @@ One network does both identity jobs on a player thumbnail:
     missing from the training games can still be read;
   - appearance: a 256-d embedding trained so crops of the same player are closer than crops of any
     other player of the same game, team-mates included (supervised contrastive loss).
-It is CLIP ViT-B/16 (as football_profiler.reid) fine-tuned end to end on crops cut by
+It is CLIP ViT-B/16 (the same backbone as the retired re-identification head) fine-tuned end to end on crops cut by
 scripts/footpass_crops.py from FOOTPASS training games (SoccerNet NDA data; each crop labelled with
 the player's true shirt number and team). Crops are scaled down at random so 720p broadcasts are
 covered, and never mirrored (mirrored digits read differently).
 
 Measured on the held-out FOOTPASS validation games, per true tracklet (a player's crops with no
 gap over 2 s), against the current reader (football_profiler.jersey: legibility classifier and
-PARSeq) and the current appearance head (football_profiler.reid). Report:
+PARSeq) and the retired appearance head (football_profiler.reid, removed). Report:
 evidence/identity_model.json; weights: <weights>/identity_vitb16/model.pt.
 
 Usage (from PitchProfile/):

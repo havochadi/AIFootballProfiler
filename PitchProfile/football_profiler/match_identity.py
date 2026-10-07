@@ -113,8 +113,8 @@ MIN_NUMBER_VOTES = .3          # summed recogniser confidence behind a segment's
 ANCHOR_MIN_SEGMENTS = 3        # a shirt number becomes a player only with this many readings...
 ANCHOR_MIN_VOTES = 1.5         # ...and this much summed confidence
 MAX_OUTFIELD_NUMBERS = 14      # starting outfielders plus substitutes in one half
-# Appearance re-identification (football_profiler.reid) attaches unnumbered segments. Thresholds
-# from held-out matches (evidence/reid_head.json, thumbnails re-cut by scripts/extract_crops.py):
+# Appearance re-identification attaches unnumbered segments (embeddings from the identity model
+# on the normal path). Thresholds from held-out matches (thumbnails re-cut by scripts/extract_crops.py):
 # a margin over the runner-up player of 0.02 with 17+ thumbnails picked the right player 91% of
 # the time and 0.025 with 9-16 thumbnails 90%; segments with fewer thumbnails did not reach 90%
 # at any margin (5-8: 86%, 1-2: under 50%), so they stay unassigned.
@@ -205,7 +205,7 @@ def resolve(people, directions, confirmed=None, numbers=None, embeddings=None):
 
     numbers maps segment -> jersey reading (football_profiler.jersey). With enough
     readings, identities are shirt numbers; segments without a reliable reading join
-    a player only on a clear appearance match (embeddings, football_profiler.reid)
+    a player only on a clear appearance match (embeddings from the identity model)
     and otherwise stay unassigned (their events still count for the team). With too
     few readings tactical slots are used. confirmed maps segment -> identity from
     human review and always wins.

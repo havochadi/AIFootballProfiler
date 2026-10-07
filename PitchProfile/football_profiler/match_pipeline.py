@@ -237,22 +237,18 @@ def read_numbers(directory, people):
 def read_appearance(directory, people):
     """(jersey reading per segment, appearance embedding and thumbnail count per segment).
 
-    Either part is {} when its model is unavailable.
+    Used only when the identity model's weights are missing: shirt numbers are read with the
+    legibility classifier and PARSeq, and there are no appearance embeddings (the second value
+    is always {}); the identity model supplies those on the normal path.
     """
     from . import jersey as J
-    from . import reid as R
-    if not (J.available() or R.available()):
+    if not J.available():
         return {}, {}
     seg_tracks = people.groupby('segment').track.agg(lambda s: sorted(set(s))).to_dict()
     crops = _crops_by_segment(directory, seg_tracks)
     if not crops:
         return {}, {}
-    numbers = J.read_groups(crops) if J.available() else {}
-    embeddings = {}
-    if R.available():
-        vecs = R.embed_groups(crops)
-        embeddings = {k: (v, len(crops[k])) for k, v in vecs.items()}
-    return numbers, embeddings
+    return J.read_groups(crops), {}
 
 
 def save_appearance(directory, people, numbers, embeddings):
@@ -374,7 +370,7 @@ def half_state(identifier, progress=lambda *a: None, confirmed=None):
     meta, hz, frames, people, ball, directions, team_info = stages(
         identifier, progress, keepers=keeper_tracks(track_ev) if track_ev else None)
     progress(.5, 'Detecting touches, passes, shots and duels')
-    shot_model = SH.model_for(meta.get('match_id'))
+    shot_model = None if os.environ.get('PITCHPROFILE_NO_SHOT_MODEL') else SH.model_for(meta.get('match_id'))    # the variable is for measuring without it
     events, spells, pos, people, segments = ME.events(people, ball, directions, hz, frames=frames, shot_model=shot_model)
     events, spotted = merge_spotted(d, events, spells, people, ball, directions, hz)
     progress(.65, 'Reading jersey numbers and linking players across cuts')
@@ -382,7 +378,7 @@ def half_state(identifier, progress=lambda *a: None, confirmed=None):
     if track_ev:
         evidence = segment_evidence(people, track_ev)
         numbers, embeddings = model_readings(evidence)
-        legacy = legacy_numbers(d, people)
+        legacy = {} if os.environ.get('PITCHPROFILE_NO_LEGACY_READER') else legacy_numbers(d, people)    # the variable is for measuring without it
         save_appearance(d, people, legacy or numbers, embeddings)
         signatures = MI.signatures(people, directions)
         rosters = lineup_numbers(S.read_json(d / 'manifest.json', {}))
@@ -442,6 +438,7 @@ def postprocess(identifier, progress=lambda *a: None, confirmed=None):
 # labels let a pass read as a free kick), so neither gives a usable count.
 SPOTTER_TYPES = ('tackle', 'block', 'header', 'high_pass', 'throw_in', 'cross', 'shot')
 SHOT_MATCH_S = 1.5
+SHOT_OVERRIDE = os.environ.get('PITCHPROFILE_SHOT_OVERRIDE', 'on') != 'off'    # 'off' credits spotted shots with the picture rule only (for measuring)
 
 
 def merge_spotted(directory, events, spells, people, ball, directions, hz):
@@ -473,7 +470,7 @@ def merge_spotted(directory, events, spells, people, ball, directions, hz):
     rule_shots = ev[ev.type.eq('shot')]
     for i, r in found[found.type.eq('shot')].iterrows():
         near = rule_shots[(rule_shots.team == r.team) & ((rule_shots.time_s - r.time_s).abs() <= SHOT_MATCH_S)]
-        if len(near):
+        if len(near) and SHOT_OVERRIDE:
             m = near.iloc[int((near.time_s - r.time_s).abs().argmin())]
             found.loc[i, ['segment', 'view_shot', 'x', 'y']] = [m.segment, m.view_shot, m.x, m.y]
     if found.type.eq('shot').any() and 'x' in found:

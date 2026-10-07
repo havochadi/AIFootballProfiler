@@ -64,7 +64,7 @@ def build(pretrained=True):
     import timm
     import torch
     from .football_models import weights_dir
-    os.environ.setdefault('HF_HOME', str(weights_dir() / 'hf'))            # the CLIP weights reid.py uses
+    os.environ.setdefault('HF_HOME', str(weights_dir() / 'hf'))            # where the CLIP backbone weights are cached
 
     class Net(torch.nn.Module):
         def __init__(self):
