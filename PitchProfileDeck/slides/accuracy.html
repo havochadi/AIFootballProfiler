@@ -1,34 +1,23 @@
-<section id="accuracy" data-transition="fade" style="background:#0F241D;color:#F3F6F2;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:30px">
+<section id="accuracy" data-transition="fade" style="background:#0F241D;color:#F3F6F2;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:48px">
 <p style="font-size:24px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#8CE3B6">How well it works</p>
-<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.15;color:#F3F6F2">Measured against held-out ground truth</h2>
-<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
-<div style="display:flex;flex-direction:column;gap:8px;background:#17382D;padding:28px;border:1px solid #2A5646;border-radius:16px">
-<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.1;color:#8CE3B6">0.89</p>
-<p style="font-size:26px;line-height:1.4;color:#BFD8CE">Correlation of per-player pass counts with annotations</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:8px;background:#17382D;padding:28px;border:1px solid #2A5646;border-radius:16px">
-<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.1;color:#8CE3B6">0.71 / 0.70</p>
-<p style="font-size:26px;line-height:1.4;color:#BFD8CE">Shot precision and recall from the video action model</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:8px;background:#17382D;padding:28px;border:1px solid #2A5646;border-radius:16px">
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.15;color:#F3F6F2">Good where the picture is clear</h2>
+<div style="display:flex;gap:32px">
+<div style="flex:1;display:flex;flex-direction:column;gap:14px;background:#17382D;padding:40px;border:1px solid #2A5646;border-radius:16px">
 <p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.1;color:#8CE3B6">80%</p>
-<p style="font-size:26px;line-height:1.4;color:#BFD8CE">Shirt numbers read correctly (1,211 test tracklets)</p>
+<p style="font-size:30px;line-height:1.35;color:#BFD8CE">of shirt numbers read correctly</p>
 </div>
-<div style="display:flex;flex-direction:column;gap:8px;background:#17382D;padding:28px;border:1px solid #2A5646;border-radius:16px">
-<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.1;color:#8CE3B6">8 of 8</p>
-<p style="font-size:26px;line-height:1.4;color:#BFD8CE">Halves with the attack direction right</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:14px;background:#17382D;padding:40px;border:1px solid #2A5646;border-radius:16px">
+<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.1;color:#8CE3B6">0.89</p>
+<p style="font-size:30px;line-height:1.35;color:#BFD8CE">match between our pass counts and the real ones</p>
 </div>
-<div style="display:flex;flex-direction:column;gap:8px;background:#17382D;padding:28px;border:1px solid #2A5646;border-radius:16px">
-<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.1;color:#8CE3B6">95%</p>
-<p style="font-size:26px;line-height:1.4;color:#BFD8CE">Names right when one is given (about half of player time is named)</p>
-</div>
-<div style="display:flex;flex-direction:column;gap:8px;background:#17382D;padding:28px;border:1px solid #2A5646;border-radius:16px">
-<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.1;color:#8CE3B6">0.48 → 0.60</p>
-<p style="font-size:26px;line-height:1.4;color:#BFD8CE">Action spotter mean average precision after fine-tuning</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:14px;background:#17382D;padding:40px;border:1px solid #2A5646;border-radius:16px">
+<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.1;color:#8CE3B6">0.71 / 0.70</p>
+<p style="font-size:30px;line-height:1.35;color:#BFD8CE">shot precision and recall</p>
 </div>
 </div>
-<p style="font-size:24px;line-height:1.4;color:#BFD8CE">The pass figure tests the event logic on annotated positions, not the whole chain from video. Tackles, blocks and crosses still run far below real counts.</p>
+<p style="font-size:30px;line-height:1.4;color:#F3F6F2">Measured on matches the models never saw.</p>
+<p style="font-size:28px;line-height:1.4;color:#BFD8CE">Tackles and blocks are still far below real counts.</p>
 <p style="position:absolute;left:128px;bottom:64px;width:1100px;font-size:24px;color:#BFD8CE">PitchProfile · AAI3001</p>
-<p style="position:absolute;right:128px;bottom:64px;width:200px;text-align:right;font-size:24px;color:#BFD8CE">11</p>
-<aside>About 45 seconds. These are the results we can defend because each was measured on data the model never saw: per-player pass counts correlate 0.89 with annotations in a fully annotated match; shots are found with 0.71 precision and 0.70 recall; shirt numbers are read correctly for 80% of test tracklets; the attack direction was right in all 8 test halves. On the FOOTPASS held-out games, about half of visible player time is attached to a named player and 95% of those names are right. The fine-tuned action spotter went from 0.48 to 0.60 mean average precision on held-out games. Be honest about the caveat in the footer line, and lead into the next slide.</aside>
+<p style="position:absolute;right:128px;bottom:64px;width:200px;text-align:right;font-size:24px;color:#BFD8CE">6</p>
+<aside>About 30 seconds. Three numbers, each measured on data the models never saw. 80% of shirt numbers are read correctly. Our per-player pass counts correlate 0.89 with the real annotated counts. Shots are found with 0.71 precision and 0.70 recall, which means about 7 in 10 of our shots are real and we find about 7 in 10 of the real ones. Be honest about the last line: tackles and blocks are still far below real counts, which leads straight into the next slide. Small print if asked: the pass figure tests the event logic on annotated positions, not the whole chain from video; and about half of player time is tied to a named player, with 95% of those names right.</aside>
 </section>
