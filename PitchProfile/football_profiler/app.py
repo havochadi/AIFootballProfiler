@@ -66,7 +66,7 @@ def start_job(kind,func,**kwargs):
 @app.get("/api/status")
 def status():
     from .runtime import runtime_info
-    return {"version":"0.1.0","datasets":len(S.datasets()),"position_groups":T.GROUPS,"detector_available":(S.ROOT/"models/yolo11n.pt").is_file(),"runtime":runtime_info()}
+    return {"version":"0.1.0","datasets":len(S.datasets()),"position_groups":T.GROUPS,"runtime":runtime_info()}
 
 @app.get("/api/datasets")
 def datasets():return S.datasets()
@@ -129,24 +129,6 @@ def frame(identifier,seconds:float=0):
     if not ok:raise ValueError("Unable to encode frame")
     return Response(encoded.tobytes(),media_type="image/jpeg")
 
-@app.post("/api/upload")
-async def upload(file:UploadFile=File(...),title:str=Form("Uploaded match clip"),sampling_hz:float=Form(5),max_seconds:float=Form(60),tracker:str=Form('botsort')):
-    from .vision import process_video
-    ext=Path(file.filename or "").suffix.lower()
-    if ext not in (".mp4",".mov",".avi",".webm",".mkv"):raise ValueError("Choose a supported video file")
-    identifier="video-"+uuid.uuid4().hex[:10];d=S.dataset_dir(identifier,True);dst=d/("input"+ext)
-    total=0
-    try:
-        with dst.open("wb") as f:
-            while chunk:=await file.read(1024*1024):
-                total+=len(chunk)
-                if total>512*1024*1024:raise ValueError("Upload limit is 512 MB")
-                f.write(chunk)
-    except Exception:
-        dst.unlink(missing_ok=True);raise
-    finally:await file.close()
-    return {**start_job("video",process_video,identifier=identifier,input_path=dst,title=title[:160],sampling_hz=sampling_hz,max_seconds=max_seconds,tracker=tracker),"dataset_id":identifier}
-
 @app.get('/api/soccernet/library')
 def soccernet_library():
     from . import soccernet as SN
@@ -192,39 +174,10 @@ def soccernet_events(library_id):
     return {'events':SN.annotations(item['game'],item['half']),
             'note':'SoccerNet manual match events; no player attribution. Times are half-relative seconds.'}
 
-class LibraryAnalysis(BaseModel):
-    library_id:str
-    start_s:float=Field(default=0,ge=0,allow_inf_nan=False)
-    max_seconds:float=Field(default=60,ge=1,le=3600)
-    sampling_hz:float=Field(default=5,ge=.5,le=15)
-    tracker:str='botsort'
-
-@app.post('/api/soccernet/analyse')
-def analyse_soccernet(payload:LibraryAnalysis):
-    from . import soccernet as SN
-    item=SN.entry(payload.library_id)
-    if payload.start_s>=item['duration']:raise ValueError('Start is outside the half video')
-    if payload.tracker not in ('botsort','bytetrack'):raise ValueError('Unknown tracker')
-    identifier='soccernet-video-'+uuid.uuid4().hex[:10]
-    return {**start_job('soccernet-video',SN.analyse,identifier=identifier,**payload.model_dump()),'dataset_id':identifier}
-
 @app.get("/api/jobs/{jid}")
 def job(jid):
     if jid not in jobs:raise HTTPException(404,"Job unavailable in this session")
     return jobs[jid]
-
-class Calibration(BaseModel):
-    image_points:list[list[float]]
-    pitch_points:list[list[float]]
-    reference_s:float=0
-    start_s:float=0
-    end_s:float|None=None
-    static_camera:bool=False
-
-@app.post("/api/datasets/{identifier}/calibration")
-def calibration(identifier,payload:Calibration):
-    from .vision import calibrate
-    return start_job("calibration",calibrate,identifier=identifier,**payload.model_dump())
 
 class Identity(BaseModel):
     name:str=Field(min_length=1,max_length=120)

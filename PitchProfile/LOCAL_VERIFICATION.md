@@ -1,5 +1,7 @@
 # Local verification
 
+> **Update, 8 October 2026.** The short-clip path described in parts of this document was removed: the upload dialog, the short-interval analysis, manual calibration and the YOLO11n detector. The app analyses whole halves and whole matches only, with the YOLOv8x pipeline. This document is kept as the record of what was built and checked at the time.
+
 ## 30 September 2026: who is who (identity model, grouping, legible-thumbnail naming)
 
 Measurements and reasoning: [DETECTION_RESEARCH.md](DETECTION_RESEARCH.md), section 6.

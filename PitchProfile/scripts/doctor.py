@@ -27,7 +27,7 @@ def main():
             print(f"OK {module}: {getattr(loaded, '__version__', 'installed')}")
         except Exception as exc:
             failures.append(f"{module}: {exc}")
-    for name in ("static/index.html", "static/app.js", "models/yolo11n.pt"):
+    for name in ("static/index.html", "static/app.js"):
         if not (ROOT / name).is_file():
             failures.append(f"Missing {name}")
     try:

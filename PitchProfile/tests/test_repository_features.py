@@ -59,7 +59,8 @@ def test_shape_excludes_goalkeeper_and_uses_simultaneous_frame():
 def test_library_cannot_accept_arbitrary_path(client,tmp_path,monkeypatch):
     monkeypatch.setenv('PITCHPROFILE_SOCCERNET',str(tmp_path/'library'))
     assert client.get('/api/soccernet/library').json()['videos']==[]
-    assert client.post('/api/soccernet/analyse',json={'library_id':'../../secret'}).status_code==404
+    assert client.post('/api/soccernet/analyse',json={'library_id':'../../secret'}).status_code in (404,405)
+    assert client.post('/api/upload').status_code in (404,405)
 
 
 def test_soccernet_event_clock_uses_position_and_half(tmp_path,monkeypatch):

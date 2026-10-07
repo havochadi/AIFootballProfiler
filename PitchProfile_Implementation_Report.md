@@ -6,7 +6,8 @@
 > sections below were never trained on real labels and were removed from the code
 > and the interface. The shot classifier and the older re-identification head were
 > retired as well, after measurement showed the video action spotter and the identity
-> model were better. What the app does today is full-match analysis from broadcast
+> model were better. The short-clip upload, manual calibration and the YOLO11n detector were removed as well: the models are
+> built and tested on whole halves and matches. What the app does today is full-match analysis from broadcast
 > video: detection, tracking, pitch mapping, teams, ball path, shirt-number and
 > identity models, event spotting and per-player statistics. See
 > `PitchProfile/MODELS.md` (what is used and what was retired, with the measurements)

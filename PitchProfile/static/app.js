@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const state={datasets:[],manifest:null,profiles:[],player:null,pid:null,tab:'match',datasetRequest:0,playerRequest:0,cal:{image:null,imagePoints:[],pitchPoints:[],pending:null}};
+const state={datasets:[],manifest:null,profiles:[],player:null,pid:null,tab:'match',datasetRequest:0,playerRequest:0};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pct=x=>x==null?'Unavailable':(x*100).toFixed(1)+'%';
 const num=x=>x==null?'—':Number(x).toFixed(1);
@@ -59,12 +59,6 @@ async function selectDataset(id,preferredPid=null){
   state.manifest=data.manifest;state.profiles=data.profiles;state.pid=null;
   $('dataset-select').value=id;$('source-note').textContent=data.manifest.note||'';$('player-search').value='';
   $('match-title').textContent=data.manifest.title;$('export-tracks').href=base()+'/export';
-  $('calibration-panel').hidden=data.manifest.source_kind!=='model_predictions';
-  if(changed){
-    state.cal={image:null,imagePoints:[],pitchPoints:[],pending:null};
-    $('cal-ref').value=0;$('cal-start').value=0;$('cal-end').value=Math.min(10,data.manifest.duration_seconds);
-    $('cal-static').checked=false;drawCalibration();
-  }
   safeLocalSet('pitchprofile-match',id);
   renderPlayers();
   if(state.profiles.length){
@@ -86,20 +80,11 @@ async function changeTab(tab){
   window.dispatchEvent(new Event('tabchange'));
 }
 async function monitor(jobId,preferred){$('job').hidden=false;while(true){const j=await api('/api/jobs/'+jobId);$('job-message').textContent=j.message;$('job-progress').value=j.progress;$('job-value').textContent=Math.round(j.progress*100)+'%';if(j.status==='failed'){$('job').hidden=true;throw Error(j.message);}if(j.status==='complete'){$('job').hidden=true;notice('Processing complete. Results are saved.');await refreshSources(preferred||state.manifest?.id);return j;}await new Promise(resolve=>setTimeout(resolve,1200));}}
-function drawCalibration(){const cal=state.cal,c=$('cal-image').getContext('2d');c.clearRect(0,0,$('cal-image').width,$('cal-image').height);if(cal.image)c.drawImage(cal.image,0,0);const pc=pitch($('cal-pitch'));const pts=[...cal.imagePoints,...(cal.pending?[cal.pending]:[])];for(const [i,p] of pts.entries()){c.fillStyle='#ffcb54';c.beginPath();c.arc(p[0],p[1],6,0,Math.PI*2);c.fill();c.font='bold 18px Arial';c.fillText(String(i+1),p[0]+8,p[1]-8);}cal.pitchPoints.forEach((p,i)=>{const x=16+p[0]/105*808,y=16+p[1]/68*512;pc.fillStyle='#ffcb54';pc.beginPath();pc.arc(x,y,6,0,Math.PI*2);pc.fill();pc.font='bold 18px Arial';pc.fillText(String(i+1),x+8,y-8);});$('cal-save').disabled=!cal.image||cal.imagePoints.length<4;$('cal-points').textContent=cal.imagePoints.length+' matched pairs. '+(cal.pending?'Now select the matching pitch position.':'Select another image landmark or apply calibration.');}
-function clickCoordinates(canvas,e){const r=canvas.getBoundingClientRect();return [(e.clientX-r.left)*canvas.width/r.width,(e.clientY-r.top)*canvas.height/r.height];}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=handler(()=>changeTab(b.dataset.tab)));
 $('dataset-select').onchange=handler(e=>selectDataset(e.target.value));$('player-search').oninput=()=>renderPlayers();
-$('upload-open').onclick=()=>$('upload-dialog').showModal();$('upload-close').onclick=()=>$('upload-dialog').close();
-$('upload-form').onsubmit=handler(async e=>{e.preventDefault();const fd=new FormData(e.target);notice('Uploading the selected video…');const r=await api('/api/upload',{method:'POST',body:fd});$('upload-dialog').close();await monitor(r.job_id,r.dataset_id);});
 $('identity-form').onsubmit=handler(async e=>{e.preventDefault();const savedPid=state.pid;await post(playerBase()+'/identity',{name:$('identity-name').value,team:$('identity-team').value,role:$('identity-role').value,position_group:$('identity-group').value||null,global_id:$('identity-key').value||null,identity_verified:$('identity-verified').checked,direction:$('identity-direction').value});notice('Identity saved.');await selectDataset(state.manifest.id,savedPid);});
 $('event-form').onsubmit=handler(async e=>{e.preventDefault();const r=await post(playerBase()+'/events',{time_s:Number($('event-time').value),kind:$('event-kind').value,reviewer:$('event-reviewer').value,notes:$('event-notes').value});state.player.manual_events=r.events;renderEvents();notice('Reviewed event saved.');});
 $('import-form').onsubmit=handler(async e=>{e.preventDefault();const fd=new FormData();fd.append('tracks',$('import-tracks').files[0]);fd.append('manifest',$('import-manifest').files[0]);const m=await api('/api/import-tracks',{method:'POST',body:fd});notice('Tracking dataset imported.');await refreshSources(m.id);await changeTab('overview');});
 $('export-manifest').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state.manifest,null,2)],{type:'application/json'}));a.download=state.manifest.id+'_manifest.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);};
-$('load-cal-frame').onclick=handler(async()=>{const datasetId=state.manifest.id;const img=new Image();img.src=base()+'/frame?seconds='+Number($('cal-ref').value);await img.decode();if(state.manifest.id!==datasetId)return;state.cal={image:img,imagePoints:[],pitchPoints:[],pending:null};$('cal-image').width=img.naturalWidth;$('cal-image').height=img.naturalHeight;drawCalibration();});
-$('cal-image').onclick=e=>{if(!state.cal.image)return;state.cal.pending=clickCoordinates($('cal-image'),e);drawCalibration();};
-$('cal-pitch').onclick=e=>{if(!state.cal.pending)return;const p=clickCoordinates($('cal-pitch'),e),x=(p[0]-16)/808*105,y=(p[1]-16)/512*68;if(x<0||x>105||y<0||y>68)return;state.cal.imagePoints.push(state.cal.pending);state.cal.pitchPoints.push([x,y]);state.cal.pending=null;drawCalibration();};
-$('cal-undo').onclick=()=>{if(state.cal.pending)state.cal.pending=null;else{state.cal.imagePoints.pop();state.cal.pitchPoints.pop();}drawCalibration();};
-$('cal-save').onclick=handler(async()=>{const r=await post(base()+'/calibration',{image_points:state.cal.imagePoints,pitch_points:state.cal.pitchPoints,reference_s:Number($('cal-ref').value),start_s:Number($('cal-start').value),end_s:Number($('cal-end').value),static_camera:$('cal-static').checked});await monitor(r.job_id,state.manifest.id);});
-setPlayerControls(false);pitch($('heatmap'));drawCalibration();document.body.dataset.page=state.tab;
+setPlayerControls(false);pitch($('heatmap'));document.body.dataset.page=state.tab;
 window.addEventListener('DOMContentLoaded',()=>refreshSources().catch(e=>notice(e.message,true)));

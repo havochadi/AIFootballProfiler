@@ -1,7 +1,8 @@
 # Models used in PitchProfile
 
 Every model that touches match footage runs locally, on the machine's NVIDIA
-GPU. No cloud AI service or language model is used anywhere in the pipeline.
+GPU. In this file a *model* is something with weights learned from data; hand-written
+rules and other non-learned methods are listed separately below. No cloud AI service or language model is used anywhere in the pipeline.
 Weights live on the data drive (`D:\CVDL Football Data\PitchProfile\weights`
 and `D:\CVDL Football Data\third_party\No-Bells-Just-Whistles\weights`), not
 inside the project, and are fetched by `scripts\fetch_football_models.py`
@@ -61,6 +62,7 @@ Removed after measuring each against the model that replaced it. Their weights a
 | Shot classifier (gradient-boosted trees) and the hand-written shot rule | The video action spotter (T-DEED) | Same four held-out SoccerNet halves, same labels and matching: spotter F1 0.70 against 0.41 (0.71 against 0.45 at each model's best threshold). The classifier's release made no difference to who was credited with a shot, and removing it left every end-to-end score unchanged (`scripts/compare_shot_vs_spotter.py` is in git history; `evidence/shot_vs_tdeed.json`). |
 | Frozen CLIP encoder and re-identification head | The appearance embedding of the identity model | On SoccerNet tracking clips (6,473 pieces) the old head matched 71.6% against 90.1% for the identity model (`evidence/identity_sn_tracking_mixed_model.json`). It only ran when the identity weights were missing. |
 | Archetype profiler (label spreading over 42 styles), interval-review CNN, archetype ratings, interval reviews and the 42-role catalogue | Nothing: the project does not rate playing styles | No players were ever labelled, so neither model was fitted. The code, screens and tests were removed; position groups stay for percentile profiles. Existing `annotations.sqlite` files are left untouched. |
+| Short-clip analysis: upload dialog, short-interval analysis, manual calibration and the YOLO11n (COCO) detector | Full-match and full-half analysis with the YOLOv8x pipeline | The models are built and tested on whole halves and matches. The short-clip path used a different detector and none of the identity, event or action models. Its weights file (`models/yolo11n.pt`) and `scripts/train_detector.py` were deleted from the repository. |
 | Spotter fine-tune `tdeed_team_bas_ft2` and five older identity-model checkpoints | `tdeed_team_bas_ft`, `identity_vitb16/model.pt` | `ft2` was lower on FOOTPASS validation (0.585 against 0.604 mean average precision). |
 
 Shots, tackles, blocks and headers now come from the action spotter alone, and `analyse()` runs it
@@ -78,5 +80,4 @@ interception from a pass, and the spotter's tackles replace them whenever it has
 - `football_profiler/spotter_data.py` / `scripts/pack_spotter_frames.py` / `scripts/finetune_action_spotter.py` /
   `scripts/evaluate_spotter_labelled.py` — spotter fine-tuning data, training and held-out measurement.
 - `football_profiler/match_movement.py`, `match_profiles.py` — off-ball runs, style profiles.
-- `football_profiler/vision.py` — YOLO11n (COCO-pretrained), used only by the
-  older short-clip upload path, not full-match analysis.
+- `football_profiler/vision.py` — video helpers only (ffmpeg lookup, overlay encoding, video metadata, frame reads).

@@ -140,9 +140,9 @@ from them earlier are parked in `D:\CVDL Football Data\Archives\pff-wc2022`
 (see its README to restore or delete them). The importer
 (`scripts\import_pff.py`) remains in the code.
 
-**Short clips** can still be uploaded under **Data and exports → Analyse a
-video**, with manual calibration and identity confirmation. This is the earlier
-workflow, used before automatic full-match analysis existed.
+The app analyses whole halves and whole matches only. The earlier short-clip
+upload, short-interval analysis and manual calibration were removed on 8 October
+2026, because the models are built and tested on full halves and matches.
 
 ## Verify and maintain
 

@@ -154,28 +154,3 @@ def annotations(game, half, filename='Labels-v2.json', screen_sides=False):
             continue
         result.append({**item, 'time_s': seconds, 'half': half})
     return sorted(result, key=lambda x: x['time_s'])
-
-
-def analyse(identifier, library_id, start_s=0, max_seconds=60, sampling_hz=5,
-            tracker='botsort', progress=lambda *a: None):
-    from .vision import process_video
-    item = entry(library_id)
-    cameras = annotations(item['game'], item['half'], 'Labels-cameras.json')
-    manifest = process_video(identifier, source_path(library_id),
-                             f"{item['title']} · H{item['half']} · {start_s:g}s",
-                             sampling_hz=sampling_hz, max_seconds=max_seconds,
-                             start_s=start_s, tracker=tracker, progress=progress,
-                             library_id=library_id,
-                             camera_cuts=[x['time_s'] for x in cameras],
-                             source_note='SoccerNet 720p broadcast; PitchProfile model predictions',
-                             match_id='soccernet:' + item['game'],
-                             benchmark_split=item['benchmark_split'])
-    events = annotations(item['game'], item['half'])
-    end = start_s + manifest['duration_seconds']
-    S.write_json(S.dataset_dir(identifier) / 'match_events.json', {
-        'source': 'SoccerNet-v2 manual match annotations', 'source_game': item['game'],
-        'half': item['half'], 'source_start_s': start_s,
-        'note': 'Match events, not player-attributed actions or archetype labels. Times are relative to the analysed interval.',
-        'events': [{**x, 'source_time_s': x['time_s'], 'time_s': x['time_s'] - start_s}
-                   for x in events if start_s <= x['time_s'] < end]})
-    return manifest

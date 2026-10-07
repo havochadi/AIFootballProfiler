@@ -96,7 +96,7 @@ def run_checks(page, report, artifacts):
     expect(page.locator('nav button[data-tab]')).to_have_text(['Review players', 'Matches'])
     expect(page.locator('nav button[aria-current="page"]')).to_have_text('Review players')
     page.locator('.tools-menu summary').click()
-    expect(page.locator('.tools-menu button')).to_have_text(['Movement & tactics', 'Source profile & corrections', 'Upload a short clip'])
+    expect(page.locator('.tools-menu button')).to_have_text(['Movement & tactics', 'Source profile & corrections'])
     page.locator('.tools-menu summary').click()
     passed('two main tabs and a tools menu with no rating, interval or model entries')
 

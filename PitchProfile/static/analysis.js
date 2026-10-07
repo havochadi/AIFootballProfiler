@@ -1,28 +1,8 @@
 'use strict';
-let libraryVideos=[];
 let analysisRequest=0;
 function eventTable(events,clickable=false){
   if(!events.length)return '<p class="empty">No annotations in this interval.</p>';
   return '<div class="table-wrap"><table><thead><tr><th>Seconds</th><th>Event</th><th>Team</th><th>Visibility</th></tr></thead><tbody>'+events.map(e=>`<tr><td>${clickable?`<button type="button" data-event-time="${Number(e.time_s)}">${num(e.time_s)}</button>`:num(e.time_s)}</td><td>${esc(e.label)}</td><td>${esc(e.team)}</td><td>${esc(e.visibility)}</td></tr>`).join('')+'</tbody></table></div>';
-}
-async function loadLibrary(){
-  const previous=$('library-video').value;
-  const data=await api('/api/soccernet/library');libraryVideos=data.videos;
-  $('library-path').textContent=data.root;
-  $('library-video').innerHTML=data.videos.map(v=>`<option value="${esc(v.id)}">${esc(v.title)} · Half ${v.half}</option>`).join('');
-  if(data.videos.some(v=>v.id===previous))$('library-video').value=previous;
-  $('library-analyse').disabled=!data.videos.length;
-  if(!data.videos.length){$('library-info').textContent='No downloaded 720p halves were found.';return;}
-  await librarySelection();
-}
-async function librarySelection(){
-  const id=$('library-video').value,v=libraryVideos.find(v=>v.id===id);if(!v)return;
-  $('library-info').textContent=`${v.width} × ${v.height} · ${num(v.duration/60)} minutes · official split: ${v.benchmark_split||'unknown'} · ${v.actions_available?'Match labels available':'No match labels downloaded'}. The analysed interval uses a clock starting at zero.`;
-  $('library-start').max=Math.max(0,v.duration-1);
-  const result=await api('/api/soccernet/library/'+encodeURIComponent(id)+'/events');
-  if($('library-video').value!==id)return;
-  $('library-events').innerHTML=eventTable(result.events,true);
-  $('library-events').querySelectorAll('[data-event-time]').forEach(b=>b.onclick=()=>{$('library-start').value=Math.max(0,Number(b.dataset.eventTime)-10).toFixed(1);notice('Analysis start set to 10 seconds before the event.');});
 }
 function speedPlot(data){
   const canvas=$('speed-chart'),c=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
@@ -87,8 +67,6 @@ async function loadOccupancy(){
 $('load-occupancy').onclick=handler(loadOccupancy);
 $('render-overlay').onclick=handler(async()=>{const id=state.manifest.id;const result=await post(base()+'/render-overlay',{});await monitor(result.job_id,id);await changeTab('overview');});
 window.addEventListener('profilechange',()=>{$('occupancy-maps').textContent='';$('occupancy-note').textContent='';});
-$('library-video').onchange=handler(librarySelection);
-$('library-form').onsubmit=handler(async e=>{e.preventDefault();const result=await post('/api/soccernet/analyse',{library_id:$('library-video').value,start_s:Number($('library-start').value),max_seconds:Number($('library-duration').value),sampling_hz:Number($('library-hz').value),tracker:$('library-tracker').value});await monitor(result.job_id,result.dataset_id);await changeTab('overview');});
 $('tactics-form').onsubmit=handler(async e=>{e.preventDefault();await loadTactics();});
-window.addEventListener('tabchange',handler(async()=>{if(state.tab==='data')await loadLibrary();if(state.tab==='analysis')await loadMovement();}));
+window.addEventListener('tabchange',handler(async()=>{if(state.tab==='analysis')await loadMovement();}));
 window.addEventListener('profilechange',handler(async()=>{if(state.tab==='analysis')await loadMovement();}));
