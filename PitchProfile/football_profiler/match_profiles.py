@@ -1,9 +1,9 @@
-"""Style profiles: each player's statistics ranked against players in the same position group.
+"""Percentile profiles: each player's statistics ranked against players in the same position group.
 
 Rates are per 90 minutes of the player's own identified screen time, so players identified for
 more of the half are not favoured. Peers are every outfield appearance in the analysed full-match
-datasets with at least MIN_VISIBLE_S identified, in the same position group (the labelled group,
-else the one suggested from average position); groups with fewer than MIN_PEERS appearances are
+datasets with at least MIN_VISIBLE_S identified, in the same position group (suggested from average
+position, or the one a reviewer set); groups with fewer than MIN_PEERS appearances are
 compared with all outfield players instead.
 """
 from __future__ import annotations
@@ -75,9 +75,7 @@ def peer_table():
     for m in datasets:
         path = S.dataset_dir(m['id']) / 'match_stats.json'
         stamps.append((m['id'], path.stat().st_mtime_ns if path.is_file() else 0))
-    from . import semisupervised as SS
-    labels = {(r['dataset_id'], r['player_id']): r['position_group'] for r in SS.labels()}
-    key = (tuple(stamps), tuple(sorted(labels.items())))
+    key = tuple(stamps)
     if _cache['key'] == key:
         return _cache['table']
     rows = []
@@ -86,7 +84,7 @@ def peer_table():
         for p in S.read_json(S.dataset_dir(m['id']) / 'match_stats.json', {}).get('players', []):
             if p.get('role') == 'goalkeeper' or p.get('visible_seconds', 0) < MIN_VISIBLE_S:
                 continue
-            group = labels.get((m['id'], p['identity'])) or groups.get(p['identity'])
+            group = groups.get(p['identity'])
             rows.append({'dataset_id': m['id'], 'identity': p['identity'], 'group': group,
                          **{spec[1]: value(p, spec[1], spec[3]) for spec in PROFILE}})
     table = pd.DataFrame(rows)

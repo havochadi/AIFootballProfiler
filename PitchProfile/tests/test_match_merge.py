@@ -88,17 +88,14 @@ def test_names_on_a_whole_match_go_to_the_half_they_belong_to(client, monkeypatc
     assert 's5' not in S.read_json(S.dataset_dir('m-h2') / 'confirmed_identities.json')
 
 
-def test_ratings_from_both_halves_keep_the_latest():
-    from football_profiler import semisupervised as SS
-    roles = dict.fromkeys(SS.T.compatible('central_midfield'))
-    first = next(iter(roles))
-    SS.save_label('x-h1', 'A-16', 'me', 'central_midfield', {**roles, first: 20})
-    SS.save_label('x-h2', 'B-16', 'me', 'central_midfield', {**roles, first: 70})     # rated later, other kit key
-    S.copy_player_records('x-h1', 'x', {'A-16': 'A-16'})
-    S.copy_player_records('x-h2', 'x', {'B-16': 'A-16'})
-    assert SS.label('x', 'A-16')['labels'][first] == 70
-    S.copy_player_records('x-h1', 'x', {'A-16': 'A-16'})                               # older: never replaces
-    assert SS.label('x', 'A-16')['labels'][first] == 70
+def test_corrections_from_both_halves_fill_the_whole_match_without_replacing_one():
+    with S.db() as c:
+        c.execute('INSERT INTO player_identity_links(dataset_id,player_id,payload) VALUES(?,?,?)', ('x-h1', 'A-16', 'first'))
+        c.execute('INSERT INTO player_identity_links(dataset_id,player_id,payload) VALUES(?,?,?)', ('x-h2', 'B-16', 'second'))
+    assert S.copy_player_records('x-h1', 'x', {'A-16': 'A-16'}) == 1
+    assert S.copy_player_records('x-h2', 'x', {'B-16': 'A-16'}) == 0           # the whole match already has one: it stays
+    with S.db() as c:
+        assert c.execute('SELECT payload FROM player_identity_links WHERE dataset_id=? AND player_id=?', ('x', 'A-16')).fetchone()['payload'] == 'first'
 
 
 def test_unnamed_players_take_a_name_seen_in_the_other_half():

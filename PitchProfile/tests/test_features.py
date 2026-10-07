@@ -28,32 +28,6 @@ def test_profiles_exclude_estimated_invalid_and_duplicate_positions():
     assert np.asarray(result["heatmap"]).sum() == pytest.approx(1)
 
 
-def test_gap_masking_removes_only_contiguous_observations_without_mutating_coordinates():
-    original = pd.DataFrame({
-        "frame": range(20), "time_s": np.arange(20) / 10, "player_id": "p1",
-        "x": np.arange(20), "y": 34, "detected": 1, "calibration_valid": 1,
-    })
-    original.loc[3, "detected"] = 0
-    original.loc[8, "calibration_valid"] = 0
-    before = original.copy(deep=True)
-    result = F.drop_observations(original, .5, np.random.default_rng(42))
-    observed = F.observed_points(original)
-    removed = observed.index[result.loc[observed.index, "detected"].eq(0)]
-    positions = np.flatnonzero(observed.index.isin(removed))
-    assert len(removed) == 9
-    assert np.all(np.diff(positions) == 1)
-    pd.testing.assert_frame_equal(original, before)
-    pd.testing.assert_frame_equal(result.drop(columns="detected"), original.drop(columns="detected"))
-    assert result.loc[3, "detected"] == 0
-    assert result.loc[8, "calibration_valid"] == 0
-
-
-@pytest.mark.parametrize("fraction", [-.01, 1, 1.1])
-def test_gap_masking_rejects_invalid_fraction(sample_dataset, fraction):
-    with pytest.raises(ValueError, match="Gap fraction"):
-        F.drop_observations(sample_dataset[3], fraction, np.random.default_rng(1))
-
-
 def test_empty_observations_remain_unavailable(sample_dataset):
     _, player, manifest, rows = sample_dataset
     rows["detected"] = 0

@@ -1,6 +1,6 @@
 import pytest
 
-from football_profiler import storage as S, match_context as MC, semisupervised as SS
+from football_profiler import storage as S, match_context as MC
 
 
 def keeper_fixture():
@@ -40,7 +40,6 @@ def test_correction_without_online_context_survives_reload_and_preserves_evidenc
     assert client.get('/api/datasets/correction-test').json()['profiles'][0]['name'] == 'Alex Example'
     summary = client.get('/api/datasets/correction-test/match').json()['players'][0]
     assert summary['role'] == 'player' and summary['on_ball']['passes'] == 5
-    assert SS.appearances().iloc[0]['role'] == 'player'
     assert {p.name: p.read_bytes() for p in directory.iterdir()} == before
     assert MC.decorate(m, person)['name'] == 'Alex Example'
 
@@ -77,19 +76,6 @@ def test_lineup_confirmation_also_corrects_role_and_supersedes_manual_name(clien
     assert corrected['position_group'] is None and corrected['identity_correction'] is None
 
 
-def test_conflicting_saved_ratings_remain_available_but_cannot_be_resaved(client):
-    keeper_fixture()
-    labels = dict.fromkeys(SS.T.compatible('goalkeeper'), 50)
-    SS.save_label('correction-test', 'A-GK', 'Reviewer', 'goalkeeper', labels, evidence=[{'time_s': 20, 'note': 'Keep me'}])
-    assert client.post(URL, json=payload()).status_code == 200
-    result = client.post(URL.replace('track-correction', 'archetype'), json={'labeler': 'Reviewer', 'position_group': 'goalkeeper', 'labels': labels})
-    assert result.status_code == 400 and 'corrected player role' in result.json()['detail']
-    assert SS.label('correction-test', 'A-GK')['evidence'][0]['note'] == 'Keep me'
-    SS.fit(evaluate=False)
-    prediction = SS.prediction('correction-test', 'A-GK')
-    assert prediction['position_group'] != 'goalkeeper' and not prediction['labelled']
-
-
 @pytest.mark.parametrize('changes,status', [({'reviewer': ' '}, 400), ({'jersey': 0}, 422),
     ({'jersey': 10.5}, 422), ({'role': 'referee'}, 422), ({'time_s': 300}, 400)])
 def test_invalid_correction_does_not_write(client, changes, status):
@@ -101,12 +87,3 @@ def test_invalid_correction_does_not_write(client, changes, status):
 def test_unknown_track_is_rejected(client):
     keeper_fixture()
     assert client.post(URL.replace('A-GK', 'missing'), json=payload()).status_code == 404
-
-
-def test_identity_correction_hides_an_outdated_model_estimate(client):
-    keeper_fixture()
-    S.write_json(S.DATA / 'models' / 'semisupervised.json', {'created': '2000-01-01T00:00:00Z', 'predictions': [
-        {'dataset_id': 'correction-test', 'player_id': 'A-GK', 'position_group': 'goalkeeper'}]})
-    assert SS.prediction('correction-test', 'A-GK')['status'] == 'fitted'
-    assert client.post(URL, json=payload()).status_code == 200
-    assert SS.prediction('correction-test', 'A-GK')['status'] == 'identity_changed'

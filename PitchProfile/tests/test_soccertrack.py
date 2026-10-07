@@ -41,18 +41,15 @@ def test_import_half_and_media_reference(released_gsr):
         ST.import_half(released_gsr, '117092', 1)
 
 
-def test_confirming_reference_direction_rotates_once_and_invalidates_cases(client, released_gsr):
-    from football_profiler import cases as C
+def test_confirming_reference_direction_rotates_once(client, released_gsr):
     m = ST.import_half(released_gsr, '117092', 1)
     identifier, player = m['id'], m['players'][0]
-    case = C.create(identifier, player['player_id'], 1, 0, 2, 'centre_forward')
     endpoint = f"/api/datasets/{identifier}/players/{player['player_id']}/identity"
     before = S.load_tracks(identifier)
     payload = {'name': player['name'], 'direction': 'left'}
     assert client.post(endpoint, json=payload).status_code == 200
     after = S.load_tracks(identifier)
     assert after.x.tolist() == (105 - before.x).tolist()
-    assert C.get(case['id'])['stale']
     assert client.post(endpoint, json=payload).status_code == 200
     assert S.load_tracks(identifier).x.tolist() == after.x.tolist()
     assert S.read_json(S.dataset_dir(identifier) / 'profiles.json')[0]['direction_known']
@@ -60,7 +57,7 @@ def test_confirming_reference_direction_rotates_once_and_invalidates_cases(clien
 
 def test_delayed_video_pts_preserves_source_clock_and_bounds(client, released_gsr, tmp_path, monkeypatch):
     import numpy as np
-    from football_profiler import cases as C, vision as V
+    from football_profiler import vision as V
     video = tmp_path / 'delayed.mp4'
     video.write_bytes(b'artificial fixture')
     monkeypatch.setattr(V, 'video_info', lambda path: {'fps': 25, 'frames': 25, 'width': 100, 'height': 60})
@@ -72,9 +69,6 @@ def test_delayed_video_pts_preserves_source_clock_and_bounds(client, released_gs
     tracks = S.load_tracks(manifest['id'])
     assert len(tracks) == 5 and tracks.time_s.min() == 1
     assert manifest['players'][0]['eligible_frames'] == 5
-    with pytest.raises(ValueError, match='video starts'):
-        C.create(manifest['id'], 'h2-t7', 2, 0, 2, 'centre_forward')
-    assert C.create(manifest['id'], 'h2-t7', 2, 1, 2, 'centre_forward')['profile']['position_coverage'] == 1
     seen = []
     monkeypatch.setattr(V, 'read_frame', lambda path, seconds: seen.append(seconds) or np.zeros((60,100,3), dtype=np.uint8))
     assert client.get(f"/api/datasets/{manifest['id']}/frame?seconds=1.5").status_code == 200

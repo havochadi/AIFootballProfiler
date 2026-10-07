@@ -9,7 +9,6 @@ from fastapi import APIRouter
 from fastapi.responses import Response, JSONResponse, FileResponse
 from pydantic import BaseModel, Field, model_validator
 
-from . import semisupervised as SS
 from . import storage as S
 from . import taxonomy as T
 from . import match_context as MC
@@ -69,21 +68,19 @@ def match_summary(identifier):
         actual = next((t for t in context['context']['teams'] if t['id'] == team_id), None)
         if actual and kit in teams:
             teams[kit]['name'] = actual['name']
-    labelled = {r['player_id']: r for r in SS.labels() if r['dataset_id'] == identifier}
     players = []
     from . import match_profiles as PF
     for p in stats.get('players', []):
         info = people.get(p['identity'])
         if info is None:
             continue
-        label = labelled.get(p['identity'])
-        group = (label or {}).get('position_group') or info.get('position_group')
+        group = info.get('position_group')
         players.append(MC.decorate(m, {**{k: v for k, v in p.items() if k != 'positional'},
                         'positional': {k: v for k, v in p['positional'].items() if k != 'heatmap'},
                         'name': info['name'], 'jersey': info.get('jersey'), 'position_group': info.get('position_group'),
                         **{k: info.get(k) for k in ('unnamed', 'number_guess', 'number_guess_share', 'readable_views',
                                                     'identity_confirmed')},
-                        'label': label, 'profile': PF.profile(identifier, p, group)}, context))
+                        'profile': PF.profile(identifier, p, group)}, context))
     removed = sum(1 for half in (m.get('halves') or [identifier])
                   for v in S.read_json(S.dataset_dir(half) / 'confirmed_identities.json', {}).values() if v == MI.NOT_A_PLAYER)
     return S.clean_json({'id': identifier, 'title': m['title'], 'teams': teams, 'coverage': m.get('coverage'),
@@ -434,77 +431,3 @@ def undo_identity_name(identifier, payload: IdentityUndo):
     if not changed:
         raise ValueError('No reviewer name to undo for this player')
     return start_job('identity-update', _reanalyse, identifier=identifier, halves=changed)
-
-
-class LabelEvidence(BaseModel):
-    time_s: float = Field(ge=0, allow_inf_nan=False)
-    note: str = Field(default='', max_length=500)
-
-
-class ArchetypeLabel(BaseModel):
-    labeler: str = Field(min_length=1, max_length=80)
-    position_group: str
-    labels: dict[str, float | None]
-    notes: str = Field(default='', max_length=3000)
-    evidence: list[LabelEvidence] | None = Field(default=None, max_length=60)
-
-
-@router.get('/api/datasets/{identifier}/players/{pid}/archetype')
-def archetype(identifier, pid):
-    _analysed(identifier)
-    return S.clean_json({'label': SS.label(identifier, pid), 'prediction': SS.prediction(identifier, pid)})
-
-
-@router.post('/api/datasets/{identifier}/players/{pid}/archetype')
-def save_archetype(identifier, pid, payload: ArchetypeLabel):
-    _, m = _analysed(identifier)
-    if not any(p['player_id'] == pid for p in m['players']):
-        raise FileNotFoundError('Unknown player')
-    person = MC.decorate(m, next(p for p in m['players'] if p['player_id'] == pid))
-    if (person.get('identity_correction') or person.get('identity_status') == 'confirmed') and person.get('role'):
-        if (person['role'].lower() == 'goalkeeper') != (payload.position_group == 'goalkeeper'):
-            raise ValueError('Choose a position group that matches the corrected player role before saving')
-    if payload.evidence is not None:
-        start = float(m.get('source_offset_s', 0))
-        end = start + float(m['duration_seconds'])
-        if any(not start <= e.time_s <= end for e in payload.evidence):
-            raise ValueError('Evidence timestamps must be within this analysed half')
-    return SS.save_label(identifier, pid, payload.labeler, payload.position_group, payload.labels, payload.notes,
-                         evidence=[e.model_dump() for e in payload.evidence] if payload.evidence is not None else None)
-
-
-@router.delete('/api/datasets/{identifier}/players/{pid}/archetype')
-def delete_archetype(identifier, pid):
-    SS.delete_label(identifier, pid)
-    return {'deleted': True}
-
-
-@router.get('/api/archetypes/summary')
-def archetype_summary():
-    rows = SS.labels()
-    fitted = S.read_json(S.DATA / 'models' / 'semisupervised.json')
-    by_group = {g: sum(1 for r in rows if r['position_group'] == g) for g in T.GROUPS}
-    return S.clean_json({'labelled': len(rows), 'by_group': by_group,
-                         'fitted': {k: v for k, v in (fitted or {}).items() if k != 'predictions'} or None})
-
-
-@router.get('/api/archetypes/export')
-def export_archetypes():
-    return JSONResponse(S.clean_json({'exported': S.now(), 'labels': SS.labels(),
-                                      'note': 'One assessment per player appearance; evidence times use the source video clock.'}),
-                        headers={'Content-Disposition': 'attachment; filename="player_labels.json"'})
-
-
-@router.post('/api/archetypes/fit')
-def fit_archetypes():
-    from .app import start_job
-    return start_job('semi-supervised', lambda progress: SS.fit(evaluate=True))
-
-
-@router.get('/api/archetypes/predictions')
-def archetype_predictions(dataset_id: str = ''):
-    fitted = S.read_json(S.DATA / 'models' / 'semisupervised.json')
-    if not fitted:
-        return {'status': 'not_fitted', 'predictions': []}
-    preds = [p for p in fitted['predictions'] if not dataset_id or p['dataset_id'] == dataset_id]
-    return S.clean_json({'status': 'fitted', 'created': fitted['created'], 'predictions': preds})

@@ -17,7 +17,6 @@ LOCAL_DATA = Path(DATA_LOCATION.read_text(encoding="utf-8").strip()) if DATA_LOC
 DATA = Path(os.environ.get("PITCHPROFILE_DATA") or LOCAL_DATA).resolve()
 EVIDENCE = Path(os.environ.get("PITCHPROFILE_EVIDENCE") or
                 (LOCAL_DATA.parent / "evidence" if DATA_LOCATION.is_file() else ROOT / "evidence")).resolve()
-LABELS = ("target_forward", "runner_behind", "link_forward")
 
 def now():
     return datetime.now(timezone.utc).isoformat()
@@ -62,15 +61,14 @@ def dataset_dir(identifier, create=False):
 
 # Per-player records of a half that belong to the person, not to the label the analysis gave him:
 # (table, columns that with dataset_id and player_id form its key).
-PLAYER_RECORDS = (('player_labels', ()), ('player_label_evidence', ()), ('player_identity_links', ()),
-                  ('player_track_corrections', ()), ('reviews', ('reviewer',)), ('manual_events', None))
+PLAYER_RECORDS = (('player_identity_links', ()), ('player_track_corrections', ()), ('manual_events', None))
 
 
 def move_player_records(dataset_id, moves):
     """Re-key a half's per-player records after re-analysis renamed players.
 
-    moves: {old player id: new player id}. Ratings, bookmarks, identity corrections, legacy
-    reviews and manual events follow the player; a record never replaces one the new player
+    moves: {old player id: new player id}. Identity corrections, track corrections and manual
+    events follow the player; a record never replaces one the new player
     already has (that record stays under its old id). Returns the number of records moved.
     """
     moves = {str(k): str(v) for k, v in moves.items() if k != v}
@@ -116,29 +114,13 @@ def move_player_records(dataset_id, moves):
 
 
 def copy_player_records(source, target, mapping):
-    """Bring a half's ratings, bookmarks and identity corrections into its whole match.
+    """Bring a half's identity and track corrections into its whole match.
 
-    mapping: {player id in source: player id in target}. A rating replaces the target's only
-    when it is newer (a player rated in both halves keeps the latest rating); identity
-    corrections are copied only where the target has none. Returns the number of records copied.
+    mapping: {player id in source: player id in target}. A correction is copied only where the
+    target has none. Returns the number of records copied.
     """
     copied = 0
     with db() as c:
-        for r in [dict(x) for x in c.execute('SELECT * FROM player_labels WHERE dataset_id=?', (source,))]:
-            dest = mapping.get(r['player_id'])
-            if dest is None:
-                continue
-            have = c.execute('SELECT updated FROM player_labels WHERE dataset_id=? AND player_id=?', (target, dest)).fetchone()
-            if have and str(have['updated']) >= str(r['updated']):
-                continue
-            c.execute('INSERT OR REPLACE INTO player_labels(dataset_id,player_id,labeler,position_group,labels,notes,updated) '
-                      'VALUES(?,?,?,?,?,?,?)', (target, dest, r['labeler'], r['position_group'], r['labels'], r['notes'],
-                                                r['updated']))
-            ev = c.execute('SELECT evidence FROM player_label_evidence WHERE dataset_id=? AND player_id=?',
-                           (source, r['player_id'])).fetchone()
-            c.execute('INSERT OR REPLACE INTO player_label_evidence VALUES(?,?,?)',
-                      (target, dest, ev['evidence'] if ev else '[]'))
-            copied += 1
         for table in ('player_identity_links', 'player_track_corrections'):
             if not c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone():
                 continue
@@ -176,45 +158,9 @@ def db():
     c.row_factory=sqlite3.Row
     try:
         c.executescript("""
-    CREATE TABLE IF NOT EXISTS reviews (
-      dataset_id TEXT NOT NULL, player_id TEXT NOT NULL, reviewer TEXT NOT NULL,
-      labels TEXT NOT NULL, evidence TEXT NOT NULL, notes TEXT NOT NULL,
-      rubric_version TEXT NOT NULL, created TEXT NOT NULL, updated TEXT NOT NULL,
-      PRIMARY KEY(dataset_id,player_id,reviewer));
-    CREATE TABLE IF NOT EXISTS review_history (
-      id INTEGER PRIMARY KEY, dataset_id TEXT,player_id TEXT,reviewer TEXT,
-      labels TEXT,evidence TEXT,notes TEXT,rubric_version TEXT,created TEXT);
-    CREATE TABLE IF NOT EXISTS adjudications (
-      dataset_id TEXT,player_id TEXT,label TEXT,value INTEGER,reviewer TEXT,
-      reason TEXT,updated TEXT,PRIMARY KEY(dataset_id,player_id,label));
     CREATE TABLE IF NOT EXISTS manual_events (
       id INTEGER PRIMARY KEY,dataset_id TEXT,player_id TEXT,time_s REAL,
       kind TEXT,reviewer TEXT,notes TEXT,created TEXT);
-    CREATE TABLE IF NOT EXISTS interval_cases (
-      id TEXT PRIMARY KEY, dataset_id TEXT NOT NULL, player_id TEXT NOT NULL,
-      definition TEXT NOT NULL, profile TEXT NOT NULL, fingerprint TEXT NOT NULL, created TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS interval_reviews (
-      case_id TEXT NOT NULL, reviewer TEXT NOT NULL, payload TEXT NOT NULL, updated TEXT NOT NULL,
-      PRIMARY KEY(case_id,reviewer));
-    CREATE TABLE IF NOT EXISTS interval_review_history (
-      id INTEGER PRIMARY KEY, case_id TEXT NOT NULL, reviewer TEXT NOT NULL,
-      payload TEXT NOT NULL, created TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS interval_adjudications (
-      case_id TEXT NOT NULL, label TEXT NOT NULL, value INTEGER NOT NULL,
-      reviewer TEXT NOT NULL, reason TEXT NOT NULL, updated TEXT NOT NULL,
-      PRIMARY KEY(case_id,label));
-    CREATE TABLE IF NOT EXISTS player_labels (
-      dataset_id TEXT NOT NULL, player_id TEXT NOT NULL, labeler TEXT NOT NULL,
-      position_group TEXT NOT NULL, labels TEXT NOT NULL, notes TEXT NOT NULL, updated TEXT NOT NULL,
-      PRIMARY KEY(dataset_id,player_id));
-    CREATE TABLE IF NOT EXISTS player_label_history (
-      id INTEGER PRIMARY KEY, dataset_id TEXT, player_id TEXT, labeler TEXT, position_group TEXT,
-      labels TEXT, notes TEXT, created TEXT);
-    CREATE TABLE IF NOT EXISTS player_label_evidence (
-      dataset_id TEXT NOT NULL, player_id TEXT NOT NULL, evidence TEXT NOT NULL,
-      PRIMARY KEY(dataset_id,player_id));
-    CREATE TABLE IF NOT EXISTS player_label_evidence_history (
-      label_history_id INTEGER PRIMARY KEY, evidence TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS match_context_bindings (
       dataset_id TEXT PRIMARY KEY, payload TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS player_identity_links (
@@ -237,51 +183,6 @@ def db():
             yield c
     finally:
         c.close()
-
-def reviews(dataset_id=None, player_id=None):
-    q="SELECT * FROM reviews WHERE 1=1";args=[]
-    for key,v in [("dataset_id",dataset_id),("player_id",player_id)]:
-        if v is not None:q+=f" AND {key}=?";args.append(str(v))
-    with db() as c:rows=[dict(x) for x in c.execute(q,args)]
-    for r in rows:r["labels"]=json.loads(r["labels"])
-    return rows
-
-def save_review(dataset_id,player_id,reviewer,labels,evidence,notes=""):
-    reviewer=reviewer.strip().casefold()
-    if not reviewer or len(reviewer)>80:raise ValueError("Enter a reviewer name or ID (up to 80 characters)")
-    if not evidence.strip():raise ValueError("Record footage timestamps or another independently reviewed source")
-    if set(labels)!=set(LABELS) or any(x not in (0,1,None) or isinstance(x,bool) for x in labels.values()):
-        raise ValueError("Each archetype must be 0, 1 or null (insufficient evidence)")
-    stamp=now();args=(dataset_id,str(player_id),reviewer,json.dumps(labels),evidence[:2000],notes[:3000],"1.0",stamp,stamp)
-    with db() as c:
-        c.execute("INSERT INTO review_history(dataset_id,player_id,reviewer,labels,evidence,notes,rubric_version,created) VALUES(?,?,?,?,?,?,?,?)",args[:-1])
-        c.execute("""INSERT INTO reviews VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(dataset_id,player_id,reviewer)
-        DO UPDATE SET labels=excluded.labels,evidence=excluded.evidence,notes=excluded.notes,
-        rubric_version=excluded.rubric_version,updated=excluded.updated""",args)
-        # A changed original review invalidates any previous adjudication for this case.
-        c.execute("DELETE FROM adjudications WHERE dataset_id=? AND player_id=?",(dataset_id,str(player_id)))
-
-def consensus(dataset_id, player_id):
-    rows=reviews(dataset_id,player_id)
-    with db() as c:
-        adj={r["label"]:dict(r) for r in c.execute("SELECT * FROM adjudications WHERE dataset_id=? AND player_id=?",(dataset_id,str(player_id)))}
-    out={}
-    for name in LABELS:
-        known=[r["labels"][name] for r in rows if r["labels"][name] is not None]
-        if name in adj:out[name]={"value":adj[name]["value"],"status":"adjudicated"}
-        elif len(known)>=2 and len(set(known))==1:out[name]={"value":known[0],"status":"agreed"}
-        elif len(set(known))>1:out[name]={"value":None,"status":"disagreement"}
-        else:out[name]={"value":None,"status":"needs independent review"}
-    return {"reviewers":len(rows),"labels":out}
-
-def adjudicate(dataset_id,player_id,label,value,reviewer,reason):
-    rows=reviews(dataset_id,player_id);reviewer=reviewer.strip().casefold()
-    if label not in LABELS or value not in (0,1) or isinstance(value,bool):raise ValueError("Invalid adjudication")
-    if len(rows)<2:raise ValueError("Two independent reviews are required first")
-    if not reviewer or reviewer in {x["reviewer"] for x in rows}:raise ValueError("A different third reviewer must adjudicate")
-    if not reason.strip():raise ValueError("An evidence-based reason is required")
-    with db() as c:
-        c.execute("INSERT OR REPLACE INTO adjudications VALUES(?,?,?,?,?,?,?)",(dataset_id,str(player_id),label,value,reviewer,reason[:3000],now()))
 
 def manual_events(dataset_id,player_id=None):
     q="SELECT * FROM manual_events WHERE dataset_id=?";args=[dataset_id]

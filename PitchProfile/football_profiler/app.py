@@ -1,5 +1,4 @@
 from __future__ import annotations
-import csv
 import io
 import json
 import threading
@@ -13,17 +12,13 @@ import pandas as pd
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Request
 from fastapi.responses import FileResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, StrictInt
+from pydantic import BaseModel, Field
 from . import storage as S
 from . import features as F
-from . import learning as L
-from . import cases as C
 from . import taxonomy as T
-from .case_api import router as case_router
 from .match_api import router as match_router
 
 app=FastAPI(title="PitchProfile",version="0.1.0")
-app.include_router(case_router)
 app.include_router(match_router)
 jobs={};jobs_lock=threading.Lock();pool=ThreadPoolExecutor(max_workers=1)
 STATIC=S.ROOT/"static"
@@ -71,10 +66,7 @@ def start_job(kind,func,**kwargs):
 @app.get("/api/status")
 def status():
     from .runtime import runtime_info
-    reviews=C.reviews()
-    with S.db() as db:
-        case_count=db.execute('SELECT COUNT(*) FROM interval_cases').fetchone()[0]
-    return {"version":"0.1.0","datasets":len(S.datasets()),"review_rows":len(reviews),"interval_cases":case_count,"taxonomy_version":T.VERSION,"position_groups":T.GROUPS,"archetype_model":S.read_json(S.DATA/"models/latest-v2.json"),"detector_available":(S.ROOT/"models/yolo11n.pt").is_file(),"labels":T.LABELS,"runtime":runtime_info()}
+    return {"version":"0.1.0","datasets":len(S.datasets()),"position_groups":T.GROUPS,"detector_available":(S.ROOT/"models/yolo11n.pt").is_file(),"runtime":runtime_info()}
 
 @app.get("/api/datasets")
 def datasets():return S.datasets()
@@ -96,9 +88,7 @@ def player(identifier,pid):
     if str(m.get('analysis','')).startswith('full-match'):
         from . import match_context as MC
         result=MC.decorate(m,result)
-    prediction=(L.predict(result) if result.get('taxonomy_version')==T.VERSION and result.get('position_group') in T.GROUPS
-                else {"status":"position_unconfirmed","message":"Choose an archetype position group in the identity panel before predicting compatible roles."})
-    return {**result,"prediction":prediction,"manual_events":S.manual_events(identifier,pid),"manifest_player":p}
+    return {**result,"manual_events":S.manual_events(identifier,pid),"manifest_player":p}
 
 @app.get("/api/datasets/{identifier}/players/{pid}/path")
 def trajectory(identifier,pid):
@@ -249,7 +239,7 @@ class Identity(BaseModel):
 def identity(identifier,pid,payload:Identity):
     d,m,p=get_player(identifier,pid)
     if payload.direction not in ("unknown","right","left"):raise ValueError("Choose unknown, right or left attacking direction")
-    if payload.position_group is not None and payload.position_group not in T.GROUPS:raise ValueError("Choose a position group from the archetype catalogue, or leave it unset")
+    if payload.position_group is not None and payload.position_group not in T.GROUPS:raise ValueError("Choose a position group from the list, or leave it unset")
     if payload.identity_verified and not payload.global_id:raise ValueError("A persistent identity key is required for verified history")
     # SkillCorner/reference imports retain their documented orientation. Uploaded
     # clips and SoccerTrack halves can be confirmed against their source video.
@@ -267,33 +257,6 @@ def identity(identifier,pid,payload:Identity):
     S.write_json(d/"manifest.json",m);F.build_profiles(identifier)
     return {"saved":True}
 
-class Review(BaseModel):
-    reviewer:str
-    labels:dict[str,StrictInt|None]
-    evidence:str
-    notes:str=""
-
-@app.post("/api/datasets/{identifier}/players/{pid}/review")
-def review(identifier,pid,payload:Review):
-    get_player(identifier,pid);S.save_review(identifier,pid,**payload.model_dump())
-    return S.consensus(identifier,pid)
-
-@app.get("/api/datasets/{identifier}/players/{pid}/reviews")
-def reviews(identifier,pid,reviewer:str=""):
-    get_player(identifier,pid)
-    own=[r for r in S.reviews(identifier,pid) if r["reviewer"]==reviewer.strip().casefold()]
-    return {"own_review":own[0] if own else None,"reviewer_count":len(S.reviews(identifier,pid))}
-
-class Adjudication(BaseModel):
-    label:str
-    value:StrictInt
-    reviewer:str
-    reason:str
-
-@app.post("/api/datasets/{identifier}/players/{pid}/adjudicate")
-def adjudicate(identifier,pid,payload:Adjudication):
-    get_player(identifier,pid);S.adjudicate(identifier,pid,**payload.model_dump());return S.consensus(identifier,pid)
-
 class Event(BaseModel):
     time_s:float
     kind:str
@@ -309,40 +272,8 @@ def add_event(identifier,pid,payload:Event):
         c.execute("INSERT INTO manual_events(dataset_id,player_id,time_s,kind,reviewer,notes,created) VALUES(?,?,?,?,?,?,?)",(identifier,pid,payload.time_s,payload.kind,payload.reviewer.strip()[:80],payload.notes[:1000],S.now()))
     return {"saved":True,"events":S.manual_events(identifier,pid)}
 
-@app.get("/api/annotations/summary")
-def annotations_summary():
-    people=F.case_profiles()
-    return {"agreement":L.agreement(),"review_rows":len(S.reviews()),"usable_training_cases":len(L.labelled_cases()),"cases":[{"dataset_id":p["dataset_id"],"player_id":p["player_id"],"name":p["name"],"consensus":S.consensus(p["dataset_id"],p["player_id"])} for p in people]}
-
-@app.get("/api/annotations/export")
-def export_annotations():
-    buf=io.StringIO();writer=csv.writer(buf);writer.writerow(["dataset_id","player_id","reviewer",*S.LABELS,"evidence","notes","rubric_version","updated"])
-    def safe(x):
-        text=str(x)
-        return "'"+text if text.startswith(("=","+","-","@")) else text
-    for r in S.reviews():writer.writerow([safe(r[k]) for k in ["dataset_id","player_id","reviewer"]]+[r["labels"][n] if r["labels"][n] is not None else "unknown" for n in S.LABELS]+[safe(r[k]) for k in ["evidence","notes","rubric_version","updated"]])
-    return Response(buf.getvalue(),media_type="text/csv",headers={"Content-Disposition":"attachment; filename=team_archetype_reviews.csv"})
-
 @app.get("/api/datasets/{identifier}/export")
 def export_dataset(identifier):return FileResponse(S.dataset_dir(identifier)/"tracks.csv.gz",filename=identifier+"_tracks.csv.gz",media_type="application/gzip")
-
-class Train(BaseModel):
-    split_by:str="match"
-    epochs:int=Field(default=40,ge=1,le=100)
-    seed:int=42
-    schema_version:str=T.VERSION
-
-@app.post("/api/train")
-def train(payload:Train):
-    # Return a useful error before creating a job when the team has not annotated data.
-    if len(L.labelled_cases(payload.schema_version))<12:raise ValueError("Add at least 12 independently reviewed cases with valid positions and confirmed attacking direction before training. Proposal interval cases also require 20 minutes and three evidence sequences per reviewer.")
-    return start_job("training",L.train_models,**payload.model_dump())
-
-@app.get("/api/experiments")
-def experiments(schema_version:str=T.VERSION):
-    if schema_version not in ('1.0','2.0'):raise ValueError('Unknown rubric version')
-    latest=S.read_json(S.DATA/("models/latest-v2.json" if schema_version=='2.0' else "models/latest.json"))
-    return {"archetype":S.read_json(S.DATA/"models"/latest["run_id"]/"report.json") if latest else None,"detection_sanity":S.read_json(S.EVIDENCE/"detection_sanity.json"),"reconstruction":S.read_json(S.EVIDENCE/"reconstruction_experiment.json"),"position_diagnostic":S.read_json(S.EVIDENCE/"diagnostic_baseline.json")}
 
 @app.post("/api/import-tracks")
 async def import_tracks(tracks:UploadFile=File(...),manifest:UploadFile=File(...)):

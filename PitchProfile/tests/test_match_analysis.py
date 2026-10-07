@@ -13,7 +13,6 @@ from football_profiler import match_identity as MI
 from football_profiler import match_pipeline as MPL
 from football_profiler import match_post as MP
 from football_profiler import match_stats as MS
-from football_profiler import semisupervised as SS
 from football_profiler import storage as S
 from football_profiler.match_analysis import CutDetector
 
@@ -261,7 +260,7 @@ def test_off_ball_runs_in_behind_and_pressing():
     assert not any(k.startswith('_') for k in out['A-9'])        # no internal accumulators leak out
 
 
-def test_style_profile_ranks_against_same_position_peers(monkeypatch):
+def test_percentile_profile_ranks_against_same_position_peers(monkeypatch):
     from football_profiler import match_profiles as PF
     peers = pd.DataFrame([{'dataset_id': 'd', 'identity': f'p{i}', 'group': 'centre_forward', 'shots': float(i)}
                           for i in range(10)] + [{'dataset_id': 'd', 'identity': 'cb', 'group': 'centre_back', 'shots': 0.0}])
@@ -300,35 +299,6 @@ def test_appearance_attaches_unread_segments_only_when_clearly_decided():
     assert 'ambiguous' not in identity and 'few_crops' not in identity
     assert identity.get('during7') != 'A-7'                      # one player cannot be in two places
     assert next(r for r in rows_out if r['number'] == 7)['appearance_segments'] == 1
-
-
-def test_label_spreading_follows_the_graph_and_keeps_unrated_roles_unknown():
-    rng = np.random.default_rng(0)
-    X = np.vstack([rng.normal(0, .3, (10, 3)), rng.normal(5, .3, (10, 3))])
-    Y = np.full((20, 2), np.nan)
-    known = np.zeros(20, bool)
-    Y[[0, 1], 0] = .9                       # cluster 1 rated for role 0 only
-    Y[[10, 11]] = [[.1, .8], [.1, .8]]
-    known[[0, 1, 10, 11]] = True
-    pred, support = SS.spread(X, Y, known)
-    assert pred[5, 0] == pytest.approx(.9, abs=.05)
-    assert pred[15, 0] == pytest.approx(.1, abs=.05)
-    assert pred[15, 1] == pytest.approx(.8, abs=.05)
-    assert np.isnan(pred[5, 1])            # nobody in cluster 1 rated role 1: unknown, not 0%
-    assert support[5] > 0 and support[15] > 0
-
-
-def test_archetype_labels_are_validated_and_replaced(isolated_data):
-    with pytest.raises(ValueError):
-        SS.save_label('d', 'p', 'me', 'centre_forward', {'not_a_role': 50})
-    roles = {r: None for r in SS.T.compatible('centre_forward')}
-    with pytest.raises(ValueError):
-        SS.save_label('d', 'p', 'me', 'centre_forward', roles)
-    first = next(iter(roles))
-    SS.save_label('d', 'p', 'me', 'centre_forward', {**roles, first: 70})
-    SS.save_label('d', 'p', 'me', 'centre_forward', {**roles, first: 40})
-    assert SS.label('d', 'p')['labels'][first] == 40
-    assert len(SS.labels()) == 1
 
 
 def analysed_dataset(identifier='sn-20150101-home-away-h1'):
@@ -374,7 +344,7 @@ def analysed_dataset(identifier='sn-20150101-home-away-h1'):
     return identifier
 
 
-def test_match_api_statistics_crops_labels_and_semi_supervised_fit(client):
+def test_match_api_statistics_and_crops(client):
     identifier = analysed_dataset()
     base = f'/api/datasets/{identifier}'
     summary = client.get(base + '/match').json()
@@ -384,20 +354,7 @@ def test_match_api_statistics_crops_labels_and_semi_supervised_fit(client):
     assert [e['type'] for e in events] == ['pass']
     crops = client.get(base + '/match/crops/A-3').json()['crops']
     assert len(crops) == 1 and client.get(crops[0]).headers['content-type'] == 'image/jpeg'
-    roles = {r: None for r in SS.T.compatible('central_midfield')}
-    first, second = list(roles)[:2]
-    for n in (1, 3, 5, 7):
-        body = {'labeler': 'me', 'position_group': 'central_midfield', 'labels': {**roles, first: 20 + 10 * n, second: 50}}
-        assert client.post(f'{base}/players/A-{n}/archetype', json=body).status_code == 200
-    assert client.get(f'{base}/players/A-1/archetype').json()['label']['labels'][first] == 30
-    fitted = SS.fit(evaluate=True)
-    assert fitted['labelled'] == 4 and fitted['appearances'] == 22
-    prediction = client.get(f'{base}/players/B-9/archetype').json()['prediction']
-    assert prediction['status'] == 'fitted' and prediction['position_group'] == 'central_midfield'
-    assert prediction['roles'][second] == pytest.approx(50, abs=1)
-    assert client.get('/api/archetypes/summary').json()['by_group']['central_midfield'] == 4
-    assert client.delete(f'{base}/players/A-1/archetype').status_code == 200
-    assert client.get(f'{base}/players/A-1/archetype').json()['label'] is None
+    assert 'label' not in summary['players'][0]
 
 
 def test_team_names_rename_players(client):
@@ -407,46 +364,6 @@ def test_team_names_rename_players(client):
     manifest = S.read_json(S.dataset_dir(identifier) / 'manifest.json')
     assert manifest['teams']['A']['name'] == 'Chelsea'
     assert next(p for p in manifest['players'] if p['player_id'] == 'B-4')['name'] == 'Burnley #4'
-
-
-def test_label_evidence_round_trip_history_legacy_edit_and_export(client):
-    identifier = analysed_dataset()
-    url = f'/api/datasets/{identifier}/players/A-3/archetype'
-    roles = dict.fromkeys(SS.T.compatible('central_midfield'))
-    roles[next(iter(roles))] = 0  # Zero is an observed absence, not an unknown.
-    body = {'labeler': 'reviewer', 'position_group': 'central_midfield', 'labels': roles,
-            'evidence': [{'time_s': 12.5, 'note': 'Held position while teammates advanced'}]}
-    r = client.post(url, json=body)
-    assert r.status_code == 200
-    assert r.json()['evidence'] == body['evidence']
-    assert r.json()['labels'] == roles
-    # An older client updating only ratings must not discard existing evidence.
-    assert client.post(url, json={k: v for k, v in body.items() if k != 'evidence'}).status_code == 200
-    assert client.get(url).json()['label']['evidence'] == body['evidence']
-    exported = client.get('/api/archetypes/export')
-    assert 'attachment' in exported.headers['content-disposition']
-    assert exported.json()['labels'][0]['evidence'] == body['evidence']
-    with S.db() as c:
-        assert c.execute('SELECT COUNT(*) FROM player_label_evidence_history').fetchone()[0] == 2
-    assert client.post(url, json={**body, 'evidence': []}).json()['evidence'] == []
-    assert client.delete(url).status_code == 200
-    assert client.get(url).json()['label'] is None
-    with S.db() as c:
-        assert c.execute('SELECT COUNT(*) FROM player_label_evidence').fetchone()[0] == 0
-        assert c.execute('SELECT COUNT(*) FROM player_label_evidence_history').fetchone()[0] == 3
-
-
-@pytest.mark.parametrize('evidence', [
-    [{'time_s': -1}], [{'time_s': 2701}], [{'time_s': 1, 'note': 'x' * 501}],
-    [{'time_s': 1}] * 61,
-])
-def test_label_evidence_rejects_invalid_without_changing_label(client, evidence):
-    identifier = analysed_dataset()
-    roles = dict.fromkeys(SS.T.compatible('central_midfield'), 50)
-    r = client.post(f'/api/datasets/{identifier}/players/A-3/archetype', json={
-        'labeler': 'reviewer', 'position_group': 'central_midfield', 'labels': roles, 'evidence': evidence})
-    assert r.status_code in (400, 422)
-    assert SS.label(identifier, 'A-3') is None
 
 
 def test_missing_image_boxes_is_a_valid_empty_evidence_response(client):
@@ -512,25 +429,23 @@ def test_marking_not_a_player_removes_its_segments_from_every_player(client, mon
     assert S.read_json(d / 'confirmed_identities.json') == {}
 
 
-def test_ratings_follow_players_through_renames_swaps_and_conflicts(client):
+def test_corrections_follow_players_through_renames_swaps_and_conflicts(client):
     from football_profiler import match_pipeline as MPL
     identifier = analysed_dataset()
-    roles = dict.fromkeys(SS.T.compatible('central_midfield'))
-    first = next(iter(roles))
-    rate = lambda pid, v: SS.save_label(identifier, pid, 'me', 'central_midfield', {**roles, first: v})
-    rate('A-X1', 10)
-    rate('A-X2', 20)
-    rate('A-X3', 30)
-    rate('A-16', 60)
+    with S.db() as c:
+        for pid, text in (('A-X1', 'one'), ('A-X2', 'two'), ('A-X3', 'three'), ('A-16', 'sixteen')):
+            c.execute('INSERT INTO player_identity_links(dataset_id,player_id,payload) VALUES(?,?,?)', (identifier, pid, text))
     old = {'A-X1': ['s1', 's2'], 'A-X2': ['s3'], 'A-X3': ['s4'], 'A-16': ['s5']}
     # X1 was named 16 (joining the existing #16), X2 and X3 swapped their unnamed numbers.
     identity = {'s1': 'A-16', 's2': 'A-16', 's3': 'A-X3', 's4': 'A-X2', 's5': 'A-16'}
     moves = MPL.player_moves(old, identity, {'s1': 10, 's2': 5, 's3': 7, 's4': 9, 's5': 30})
     assert moves == {'A-X1': 'A-16', 'A-X2': 'A-X3', 'A-X3': 'A-X2'}
     S.move_player_records(identifier, moves)
-    value = lambda pid: (SS.label(identifier, pid) or {}).get('labels', {}).get(first)
-    assert value('A-X3') == 20 and value('A-X2') == 30
-    assert value('A-16') == 60                       # the player's own rating is never replaced...
-    assert value('A-X1~kept') == 10 or value('A-X1') == 10     # ...and the moved one is kept, not lost
     with S.db() as c:
-        assert c.execute('SELECT COUNT(*) FROM player_labels WHERE dataset_id=?', (identifier,)).fetchone()[0] == 4
+        def value(pid):
+            row = c.execute('SELECT payload FROM player_identity_links WHERE dataset_id=? AND player_id=?', (identifier, pid)).fetchone()
+            return row['payload'] if row else None
+        assert value('A-X3') == 'two' and value('A-X2') == 'three'
+        assert value('A-16') == 'sixteen'                # the player's own record is never replaced...
+        assert 'one' in (value('A-X1~kept'), value('A-X1'))      # ...and the moved one is kept, not lost
+        assert c.execute('SELECT COUNT(*) FROM player_identity_links WHERE dataset_id=?', (identifier,)).fetchone()[0] == 4
