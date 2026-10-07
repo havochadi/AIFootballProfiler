@@ -1,10 +1,10 @@
 <section id="hard" data-transition="fade" style="background:#E6EFEA;color:#16302A;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:48px">
-<p style="font-size:24px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#0A7A5C">Difficulties we face</p>
+<p style="font-size:24px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#0A7A5C">1 · Open problem · difficulties</p>
 <h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.15;color:#16302A">Why broadcast video is hard</h2>
 <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:32px">
 <div style="display:flex;flex-direction:column;gap:14px;background:#FBFCFA;padding:40px;border:1px solid #CBD9D1;border-top:6px solid #D9730D;border-radius:16px">
 <h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:40px;font-weight:600;color:#16302A">The camera keeps cutting</h3>
-<p style="font-size:30px;line-height:1.35;color:#4F6660">The picture changes every few seconds and shows only about half the pitch.</p>
+<p style="font-size:30px;line-height:1.35;color:#4F6660">The picture changes every few seconds, and only about 60% of the time shows a usable view of the pitch.</p>
 </div>
 <div style="display:flex;flex-direction:column;gap:14px;background:#FBFCFA;padding:40px;border:1px solid #CBD9D1;border-top:6px solid #D9730D;border-radius:16px">
 <h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:40px;font-weight:600;color:#16302A">The ball is tiny</h3>
@@ -12,7 +12,7 @@
 </div>
 <div style="display:flex;flex-direction:column;gap:14px;background:#FBFCFA;padding:40px;border:1px solid #CBD9D1;border-top:6px solid #D9730D;border-radius:16px">
 <h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:40px;font-weight:600;color:#16302A">Tackles look like touches</h3>
-<p style="font-size:30px;line-height:1.35;color:#4F6660">From positions alone they are hard to tell apart. We find about one in eight.</p>
+<p style="font-size:30px;line-height:1.35;color:#4F6660">From positions alone they are hard to tell apart. In unseen games we found 1 of 26.</p>
 </div>
 <div style="display:flex;flex-direction:column;gap:14px;background:#FBFCFA;padding:40px;border:1px solid #CBD9D1;border-top:6px solid #D9730D;border-radius:16px">
 <h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:40px;font-weight:600;color:#16302A">Naming every player</h3>
@@ -20,6 +20,6 @@
 </div>
 </div>
 <p style="position:absolute;left:128px;bottom:64px;width:1100px;font-size:24px;color:#4F6660">PitchProfile · AAI3001</p>
-<p style="position:absolute;right:128px;bottom:64px;width:200px;text-align:right;font-size:24px;color:#4F6660">7</p>
-<aside>About 45 seconds. This is the honest slide, and the demo shows the first one directly: in the Live tracking tab the boxes disappear whenever the broadcast cuts away, and only about half of this match showed a usable view of the pitch. Second, the ball is tiny and often hidden, so we cannot always say who passed it. Third, a tackle looks like any other touch if you only have positions, so we use a video model, and even that finds roughly one tackle in eight; we report them as expected counts, not totals. Fourth, naming players: about half of player time is tied to a shirt number, and striped kits are the hardest to read. Also worth one sentence if asked: no player has been labelled for the archetype model yet, the best training data is under a SoccerNet NDA, and one full match takes about 70 minutes on one GPU.</aside>
+<p style="position:absolute;right:128px;bottom:64px;width:200px;text-align:right;font-size:24px;color:#4F6660">4</p>
+<aside>About 45 seconds. This is the honest slide, and the demo shows the first one directly: in the Live tracking tab the boxes disappear whenever the broadcast cuts away, and across the 22 halves analysed so far only about 60% of broadcast time shows a usable view of the pitch. Second, the ball is tiny and often hidden, so we cannot always say who passed it. Third, a tackle looks like any other touch if you only have positions, so we use a video model, and even that found only 1 of 26 tackles in unseen games; we report them as expected counts, not totals. Fourth, naming players: about half of player time is tied to a shirt number, and striped kits are the hardest to read. Also worth one sentence if asked: the best training data is under a SoccerNet NDA, and analysis takes about three quarters of the video's length on one GPU.</aside>
 </section>
