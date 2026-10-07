@@ -1,5 +1,18 @@
 # PitchProfile — implementation and evidence report
 
+> **Scope update, 8 October 2026.** The project no longer rates playing styles. The
+> archetype ratings, the label-spreading profiler, the interval reviews with
+> adjudication, the 42-role catalogue and the learned review models described in the
+> sections below were never trained on real labels and were removed from the code
+> and the interface. The shot classifier and the older re-identification head were
+> retired as well, after measurement showed the video action spotter and the identity
+> model were better. What the app does today is full-match analysis from broadcast
+> video: detection, tracking, pitch mapping, teams, ball path, shirt-number and
+> identity models, event spotting and per-player statistics. See
+> `PitchProfile/MODELS.md` (what is used and what was retired, with the measurements)
+> and `Documentation/PitchProfile_Model_Documentation.docx`. This report is kept as the
+> record of the early prototype and its claims.
+
 > **Checkout audit, 22 September 2026:** this supplied report describes a later
 > package than the ZIP present in this repository. The actual original archive
 > contains one SkillCorner match (32 players, five centre forwards), SoccerNet
@@ -14,7 +27,7 @@
 > results. The historical claims below are retained for context and are not
 > verification of this checkout.
 
-Status: **working local prototype; final archetype validation incomplete**. Prepared for the AAI3001 football player profiling project. The team's archetype assignments remain the source of reference labels.
+Status (at the time of writing): **working local prototype; final archetype validation incomplete**. Superseded: the archetype work was dropped on 8 October 2026 (see the update above). Prepared for the AAI3001 football player profiling project.
 
 ## Delivered implementation
 
@@ -85,12 +98,11 @@ This verifies the implemented prototype's behaviour. It does **not** measure HOT
 | Week 3 compulsory hurdle | Earlier proposal and project flow diagram remain the planning submission | Team details and submission via the course channel are the team's responsibility |
 | Week 6 and Week 13 | Runnable demo, reproducible source, evidence and five-minute demo script | Final research results, poster, recorded backup presentation, team repository publication and course submission |
 
-## Next concrete team work
+## Next concrete team work (updated 8 October 2026)
 
-1. Acquire suitable matching footage or other sufficiently informative independent evidence for the selected player/match intervals. If an interval differs from the bundled whole-match features, prepare aligned interval features too.
-2. Freeze the rubric and cohort; have two team members review each case independently, then adjudicate disagreements. Leave unsupported labels unknown. Review the full 30-case cohort before making model-performance claims.
-3. Check label balance and group coverage. Run the predeclared match holdout, then a separate verified-player holdout if adequate. Report per-label results and all baseline comparisons, including negative findings.
-4. Evaluate the video pipeline on several independently annotated clips: person detection, identity switches, coverage and pitch localisation. Provider-trajectory success is not automatically uploaded-video success.
-5. Extend only after those results: more matched cases, robust identity correction, action recognition and deployment. Five matches and 23 centre forwards are enough to run a small pilot, not enough to guarantee a successful or general-purpose scouting model.
+1. **Name more players.** About half of visible player time is still unnamed; line-ups and the naming panel help, and unnamed players keep their statistics.
+2. **Find the ball more often.** It is the weakest link. The fine-tuned ball detector finds more balls on its own but credited fewer passes end to end, so the cause needs understanding before it is adopted.
+3. **Find rare events.** Only 1 of 26 tackles was found end to end on unseen games; there are too few labelled tackles to train on.
+4. **Keep measuring on unseen games.** Every figure in the model documentation comes from games the models never trained on; repeat that after any change (`scripts/check_outputs_unchanged.py`, `scripts/measure_shot_credit.py`).
 
-The strongest defensible statement at this stage is that the project is **technically implementable as a bounded prototype, and a functioning implementation now exists**. Whether its archetype predictions are useful remains an empirical question requiring the team's evidence and labels.
+The strongest defensible statement at this stage is that the project is **a working full-match analysis from video, with measured strengths (seeing, tracking, passes) and measured weaknesses (naming, the ball, tackles)**.

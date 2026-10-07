@@ -1,21 +1,17 @@
 # PitchProfile
 
-PitchProfile watches football broadcast video and profiles players by playing
-style. For every player it can see in a half, it produces a heatmap, distance
+PitchProfile watches football broadcast video and turns it into player
+statistics. For every player it can see in a half, it produces a heatmap, distance
 and speeds, time on the ball, passes, receptions, carries, take-ons, shots,
 tackles, blocks, headers, interceptions, recoveries, pressures, off-ball runs
-(in behind, into the box, overlaps, pressing) and more, plus a style profile
+(in behind, into the box, overlaps, pressing) and more, plus a percentile profile
 ranking each statistic against players in the same position. It does this from
-the video alone. You rate some players' archetypes as percentages (a player can
-be several archetypes at once), and a semi-supervised model estimates the
-percentages for the players you did not label.
+the video alone.
 
 - **[FULL_MATCH_ANALYSIS.md](FULL_MATCH_ANALYSIS.md)**: how a half is analysed,
   every statistic's definition, measured accuracy and limitations.
 - **[DETECTION_RESEARCH.md](DETECTION_RESEARCH.md)**: why the statistics were
   sparse, what the research literature does about it, what changed, and what remains.
-- **[annotation/ANNOTATION_GUIDE.md](annotation/ANNOTATION_GUIDE.md)**: how to
-  label archetype percentages.
 - **[LOCAL_VERIFICATION.md](LOCAL_VERIFICATION.md)**: what was executed and measured on this machine.
 
 Inference and training run on an NVIDIA GPU (`cuda:0`).
@@ -77,51 +73,33 @@ on and shown. Results for the other halves are parked in
 ```
 
 A half takes about 30 minutes on the RTX 3090. The same analysis can be started
-from **Matches** in the app. Open a ready half with **Label players**. The review
-desk keeps your player queue, footage and role ratings together. Match context
+from **Matches** in the app. Open a ready half with **Review players**. The review
+desk keeps your player queue and footage together. Match context
 contains team naming; identity corrections, statistics and events are available
 beside the footage. Use **Identify player** to compare footage with searchable player cards.
-Advanced track merging is kept in a separate collapsed section. **Stats & maps** brings the style profile (percentiles against same-position players), movement, physical statistics and event maps together; player comparisons are in **Matches**.
+Advanced track merging is kept in a separate collapsed section. **Stats & maps** brings the percentile profile (percentiles against same-position players), movement, physical statistics and event maps together; player comparisons are in **Matches**.
 
 To add matches, `scripts\download_soccernet_720p.py --sample N --download`
 fetches N more games (720p halves only) with your Hugging Face login.
 
-## Profile archetypes
+## Review players
 
-1. In **Label players**, select a match and use the team / review-status filters
-   to work through the queue. Watch the highlighted player, use the green
-   appearance timeline or event timestamps to seek, and bookmark useful moments.
-2. Choose a position group, then expand a role. All 42 roles have two examples
-   beneath the definition: sourced player comparisons and illustrative sequences.
-   One role expands at a time. Use the evidence cues, quick 0 / 50 / 100 buttons
-   or the precise slider. **Unknown**
-   means unobserved; **0** is a deliberate rating. The full catalogue has 42 roles.
-3. **Save & next** saves the ratings, notes and timestamped evidence together.
-   Edits survive player changes and reloads as drafts on this browser. Drafts
-   enter the training dataset only when you save. Review diverse appearances
-   across matches and position groups; use evaluation to judge label sufficiency.
-4. **Models → Fit on all analysed players** spreads the labels to
-   the unlabelled players (label spreading over a nearest-neighbour graph of
-   their statistics). It reports grouped-by-match cross-validation against a
-   labelled-only baseline.
-5. Estimates appear in **Models → Estimated profiles** and behind **Reveal model
-   estimate** in the review desk. Rate independently before revealing suggestions.
-
-**More tools → Independent interval reviews** is available for stricter work: two
-independent reviewers rate a fixed 20-minute interval, disagreements go to
-adjudication, and a supervised model trains on agreed cases (see the annotation
-guide). The catalogue is under **More tools → 42-role guide**. Movement, source
-corrections and interval-model evaluation are also in **More tools**.
+1. In **Review players**, select a match and use the team filter to work through
+   the queue. Watch the highlighted player, and use the green appearance timeline
+   or event timestamps to seek.
+2. **Stats & maps** shows the player's percentile profile, movement and event maps
+   (see below). **Identify player** checks the footage against the line-up and
+   saves a correction; the **Name players** panel names the unnamed ones in bulk.
+3. Corrections survive re-analysis: they follow the player through renames and
+   are copied into the whole match.
 
 Keyboard shortcuts outside form fields: **Space/K** play or pause, **J/L** seek
-five seconds, **B** bookmark. **Ctrl/⌘+Enter** saves and advances. On smaller
-screens, the assessment stacks below the footage. **Matches → Exports & tracking
-data import** exports saved player labels with their evidence bookmarks.
+five seconds. On smaller screens the evidence stacks below the footage.
 
-UI verification: `python scripts/check_labelling_ui.py` exercises real match
-footage with disposable annotation data, including drafts, failed saves, rapid
-player changes, bookmarks, pitch event maps, historical line-ups, shirt-number
-corrections, locally cached portraits and mobile layouts. It does not start model inference.
+UI verification: `python scripts/check_ui_smoke.py` opens the real interface in a
+browser against the real data, read-only. It checks that a player loads, the
+footage controls and the stats-and-maps view work, the match library opens a
+half, and that nothing throws, fails to load or tries to write.
 
 ## Explore events and identify players
 
@@ -171,17 +149,15 @@ workflow, used before automatic full-match analysis existed.
 ```powershell
 .\.venv\Scripts\python.exe scripts/doctor.py
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe scripts/check_browser.py
-.\.venv\Scripts\python.exe scripts/check_repository_ui.py       # needs the app running and one analysed half
+.\.venv\Scripts\python.exe scripts/check_ui_smoke.py             # browser check against the real data, read-only
 .\.venv\Scripts\python.exe scripts/evaluate_events_soccertrack.py
 .\.venv\Scripts\python.exe scripts/evaluate_jersey_reader.py
-.\.venv\Scripts\python.exe scripts/train_shot_model.py
 ```
 
 Tests use disposable data directories. The local `.data-location` file points
 the app to `D:\CVDL Football Data\PitchProfile\data`. `PITCHPROFILE_DATA`
 overrides it for a one-off run. Back up that folder for real work, especially
-`annotations.sqlite`, which holds archetype labels and reviews. Reports and
+`annotations.sqlite`, which holds identity and track corrections, reviewed events and match bindings. Reports and
 screenshots are in `D:\CVDL Football Data\PitchProfile\evidence`. The service
 binds to localhost and has no authentication.
 

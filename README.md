@@ -1,10 +1,10 @@
 # AIFootballProfiler / PitchProfile
 
-Profiles football players by playing style from broadcast video. The app tracks
-every visible player, produces per-player statistics (heatmap, distance, passes,
-dribbles, shots, defensive actions and more) and estimates archetype
-percentages from a partly labelled set of players. Detection, calibration and
-training use the NVIDIA GPU.
+Turns football broadcast video into player statistics. The app tracks every
+visible player and produces per-player statistics (heatmap, distance, passes,
+dribbles, shots, defensive actions and more) and a percentile profile against
+players in the same position. Detection, calibration and training use the NVIDIA
+GPU.
 
 On Windows, from this repository:
 
