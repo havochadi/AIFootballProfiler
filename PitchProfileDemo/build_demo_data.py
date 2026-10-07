@@ -26,7 +26,7 @@ CLIPS = [(0, 'Kick-off'), (781, 'Open play'), (1256, 'Model-detected shot'),
 CLIP_SECONDS = 75
 LENGTHS = (2, 5, 10, 15, 20, 30, 45)
 OUT = Path(__file__).with_name('data.js')
-MIN_VISIBLE_S = 120          # the app's own threshold for profiling an appearance
+MIN_VISIBLE_S = 120          # the app's own threshold for analysing an appearance
 MAIN_VISIBLE_S = 600         # shown by default: on screen for 10+ minutes (the app's threshold for style percentiles)
 EVENT_TYPES = ['pass', 'carry', 'shot', 'tackle', 'interception', 'recovery', 'pressure', 'take_on',
                'clearance', 'cross', 'header', 'block']

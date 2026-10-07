@@ -10,8 +10,7 @@ const app = document.getElementById('app');
 // thumbnails and 5 min of action spotting per half (README figures)
 const REAL_FACTOR = (RUN.detect_wall_s + 360 * RUN.halves + RUN.cpu_wall_s) / M.duration_s;
 const DEMO_SECONDS = 36;           // how long the simulated analysis plays
-const MIN_RECOMMENDED_MIN = 10;    // every analysed half had at least 13 players past the 2-minute threshold by then
-const MIN_BLOCKED_MIN = 3;
+const MIN_BLOCKED_MIN = 40;        // the analysis is built for a full half (about 45 minutes) or a full match
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -186,6 +185,8 @@ const usesSampleFootage = () => S.sample || !S.file || /1_720p|manchester/i.test
 function sourceUrl() {
   if (VID.url) return VID.url;
   if (S.file && S.probe && S.probe.url && !S.probe.error && /1_720p|manchester/i.test(S.file.name)) return S.probe.url;
+  // opened through serve.py: it streams the footage from the data drive; opened as a file: read it directly
+  if (location.protocol.startsWith('http')) return '/footage';
   return encodeURI('file:///' + M.video.path);
 }
 function footageMissing(box, retry) {
@@ -229,24 +230,18 @@ function tip() {
   return t;
 }
 function videoSeconds() { return S.sample || !S.file ? M.duration_s : (S.probe && S.probe.duration) || S.manualMin * 60; }
-function playersAt(minutes) {                  // measured over every analysed half: players seen long enough, by footage length
-  let best = null;
-  for (const r of D.length) if (r.minutes <= minutes) best = r;
-  return best;
-}
 const DAG = '<span class="dag" title="Spotted by the action-spotting video model and credited to the nearest player. These are expected counts and run well below real totals; use them to compare players, not as totals.">†</span>';
 
 /* ───────────────────────── 1 · upload ───────────────────────── */
 function viewUpload() {
   const secs = videoSeconds(), have = S.file || S.sample, probe = S.probe || {};
   const unreadable = S.file && probe.error;
-  const m = secs / 60, row = playersAt(m);
-  const typical = row ? `typically ${fmt(row.median)} players (range ${row.min}–${row.max} across ${row.halves} analysed halves) reach the 2-minute threshold for profiling` : 'no player stays on screen long enough';
+  const m = secs / 60, full = D.length[D.length.length - 1];
+  const typical = `a half typically gives ${fmt(full.median)} analysed players (range ${full.min}–${full.max} across ${full.halves} analysed halves), ${fmt(full.median600)} of them on screen long enough for a fair comparison`;
   const checks = [];
   if (have) {
-    if (m < MIN_BLOCKED_MIN) checks.push(['bad', 'Too short', `${mins(secs)} is not enough: under 3 minutes, almost no player stays on screen long enough to profile.`]);
-    else if (m < MIN_RECOMMENDED_MIN) checks.push(['warn', 'Short clip', `${mins(secs)}: ${typical}. Aim for ${MIN_RECOMMENDED_MIN} minutes or more.`]);
-    else checks.push(['ok', 'Length', `${mins(secs)}: ${typical}.`]);
+    if (m < MIN_BLOCKED_MIN) checks.push(['bad', 'Too short', `${mins(secs)} is shorter than a half. PitchProfile analyses a full half (about 45 minutes) or a full match.`]);
+    else checks.push(['ok', 'Length', `${mins(secs)}: ${m > 60 ? 'a full match' : 'a full half'}. ${typical[0].toUpperCase() + typical.slice(1)}.`]);
     if (S.file) {
       if (probe.h) checks.push([probe.h >= 720 ? 'ok' : 'warn', 'Resolution', `${probe.w}×${probe.h}${probe.h >= 720 ? '' : ': below 720p, players will be harder to read'}`]);
       else if (unreadable) checks.push(['info', 'Resolution', 'This browser cannot read the file’s metadata (common for .mkv). Enter the length below.']);
@@ -255,23 +250,18 @@ function viewUpload() {
     checks.push(['info', 'Camera', 'Main broadcast camera with the pitch in view. Close-ups and crowd shots are skipped automatically.']);
   }
   const est = secs * REAL_FACTOR;
-  const tableRows = D.length.map(r => {
-    const hit = row && r.minutes === row.minutes && have;
-    return `<tr class="${hit ? 'hit' : ''}"><td>${r.minutes} min${r.minutes === 45 ? ' (full half)' : ''}</td><td>${fmt(r.median)} <span class="muted">(${r.min}–${r.max})</span><span class="bar" style="width:${r.median * 2}px"></span></td><td>${r.median600 ? fmt(r.median600) : '–'}</td></tr>`;
-  }).join('');
-  const full = D.length[D.length.length - 1], ten = D.length.find(r => r.minutes === 10), five = D.length.find(r => r.minutes === 5);
   app.innerHTML = `
   <div class="fade">
     <div class="eyebrow">Step 1 of 3</div>
     <h1>Upload a match video</h1>
-    <p class="muted" style="max-width:760px">PitchProfile watches broadcast footage, tracks every player it can see, and returns a statistical profile for each of them. The video is the only input: no tracking feeds, event data or line-ups.</p>
+    <p class="muted" style="max-width:760px">PitchProfile watches broadcast footage, tracks every player it can see, and returns a set of statistics for each of them. The video is the only input: no tracking feeds, event data or line-ups.</p>
     <div class="grid2" style="margin-top:20px">
       <div>
         <div class="card">
           <div class="drop" id="drop">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9.5 5 2.5-5 2.5z"/></svg>
             <div class="big">Drop a football match video here</div>
-            <div class="muted small">mp4 · mkv · mov · avi · webm &nbsp;|&nbsp; ${MIN_RECOMMENDED_MIN} minutes up to a full match</div>
+            <div class="muted small">mp4 · mkv · mov · avi · webm &nbsp;|&nbsp; a full half or a full match</div>
             <p style="margin:16px 0 0"><button class="primary" id="pick">Choose a video</button></p>
             <input type="file" id="file" accept="video/*,.mkv,.ts" hidden>
             <div class="or">or</div>
@@ -295,13 +285,11 @@ function viewUpload() {
         </div>` : ''}
       </div>
       <aside class="card">
-        <h2>How much footage is enough?</h2>
-        <p class="muted small">A player only gets reliable statistics once the camera has shown them for a while. Measured on the first N minutes of each of the ${full.halves} halves analysed so far (players on screen inside the calibrated pitch view):</p>
-        <table class="len"><thead><tr><th>Footage</th><th>Players with ≥ 2 min on screen<br><span style="font-weight:400">median (range)</span></th><th>Players with ≥ 10 min</th></tr></thead><tbody>${tableRows}</tbody></table>
+        <h2>What to upload</h2>
+        <p class="muted small">The models are built and tested on whole halves and whole matches, so upload one of these:</p>
         <ul class="small muted" style="padding-left:18px;margin:8px 0 0">
-          <li><b style="color:var(--ink)">Minimum: ${MIN_RECOMMENDED_MIN} minutes</b> of continuous broadcast footage. About ${fmt(ten.median)} players are profiled, and no analysed half had fewer than ${ten.min}.</li>
-          <li><b style="color:var(--ink)">5 minutes is risky:</b> the median is only ${fmt(five.median)} players and one half had ${five.min}.</li>
-          <li><b style="color:var(--ink)">Recommended: a full half (45 min).</b> Typically ${fmt(full.median)} players are profiled and ${fmt(full.median600)} stay on screen long enough for position-peer comparison.</li>
+          <li><b style="color:var(--ink)">A full half (about 45 minutes)</b> of broadcast footage. Typically ${fmt(full.median)} players are analysed, and ${fmt(full.median600)} stay on screen long enough for a fair comparison (median over ${full.halves} analysed halves).</li>
+          <li><b style="color:var(--ink)">A full match</b> (both halves, about 90 minutes). The two halves are analysed one after the other and merged.</li>
           <li>Broadcast footage is edited, so players leave the picture. Counts describe what the camera showed, not the whole match.</li>
         </ul>
       </aside>
@@ -351,7 +339,7 @@ function viewProcessing() {
   <div class="fade">
     <div class="eyebrow">Step 2 of 3</div>
     <h1>Analysing the match…</h1>
-    <p class="muted" style="max-width:820px">This is a ${DEMO_SECONDS}-second replay of a real run. A clip this long takes about <b>${mins(real)}</b> on an RTX 3090, so the demo plays back the stored result for the sample match over its real footage. Watch the boxes gain team colours, shirt numbers and the ball as each stage completes.</p>
+    <p class="muted" style="max-width:820px">This is a ${DEMO_SECONDS}-second replay of a real run. A match this long takes about <b>${mins(real)}</b> on an RTX 3090, so the demo plays back the stored result for the sample match over its real footage. Watch the boxes gain team colours, shirt numbers and the ball as each stage completes.</p>
     <div class="proc" style="margin:18px 0">
       <div class="card">
         <h2>${sampleFootage ? 'Match footage' : 'Your video'}</h2>
@@ -453,7 +441,7 @@ function viewResults() {
     ${uploaded ? `<div class="note" style="margin-bottom:16px"><b>Demo note:</b> a real analysis of <i>${esc(S.file.name)}</i> (${mins(secs)}) would take about ${mins(secs * REAL_FACTOR)}. The report below is the stored result of the sample match, so you can see exactly what comes out.</div>` : ''}
     <div class="kpis">
       <div class="kpi"><span>Video analysed</span><strong class="num">${mmss(M.duration_s)}</strong></div>
-      <div class="kpi"><span>Players profiled (10+ min on screen)</span><strong class="num">${M.profiled}</strong></div>
+      <div class="kpi"><span>Players analysed (10+ min on screen)</span><strong class="num">${M.profiled}</strong></div>
       <div class="kpi"><span>Events mapped</span><strong class="num">${fmt(M.events)}</strong></div>
       <div class="kpi"><span>Pitch in view</span><strong class="num">${fmt(M.pitch_view * 100)}%</strong></div>
       <div class="kpi"><span>Ball located</span><strong class="num">${fmt(M.ball_seen * 100)}%</strong></div>
@@ -515,7 +503,7 @@ function tabOverview() {
       <p class="muted small" style="margin:14px 0 0">Counts cover what the broadcast showed. The camera follows the ball, so players and events away from it are under-counted for both teams.</p>
     </div>
     <div style="display:grid;gap:20px;align-content:start">
-      <div class="card"><h2>Standout players</h2><p class="muted small">Click a player to open the full profile.</p><div class="leaders">${leaders}</div></div>
+      <div class="card"><h2>Standout players</h2><p class="muted small">Click a player to open their full statistics.</p><div class="leaders">${leaders}</div></div>
       <div class="card"><h2>Ball activity through the match</h2><p class="muted small">Touches by team in each 5-minute block of video time.</p>${timeline()}</div>
     </div>
   </div>
@@ -598,7 +586,7 @@ function tabTracking() {
         <div class="stat"><span>Top speed</span><strong>${fmt(p.top_kmh, 1)} km/h</strong></div>
         <div class="stat"><span>Passes</span><strong>${fmt(on.passes)}</strong><small>${on.pass_completion == null ? '–' : fmt(on.pass_completion * 100) + '% completed'}</small></div>
         <div class="stat"><span>Pressures</span><strong>${fmt(on.pressures)}</strong></div></div>
-      <p style="margin:10px 0 0"><button id="open-p">Open full profile →</button></p>`;
+      <p style="margin:10px 0 0"><button id="open-p">Open full statistics →</button></p>`;
     document.getElementById('open-p').onclick = () => { S.sel = T.sel; S.team = 'all'; S.q = ''; S.jump = true; setTab('players'); };
   };
   const select = pi => { T.sel = pi == null || pi < 0 ? null : (T.sel === pi ? null : pi); card(); cb(); };
@@ -700,7 +688,7 @@ function tabPlayers() {
   };
   const detail = () => {
     const box = document.getElementById('detail');
-    if (S.sel == null) { box.innerHTML = '<p class="muted" style="margin-top:18px">Select a player to see their heatmap, speed profile and full statistics.</p>'; redraw = () => {}; return; }
+    if (S.sel == null) { box.innerHTML = '<p class="muted" style="margin-top:18px">Select a player to see their heatmap, speed breakdown and full statistics.</p>'; redraw = () => {}; return; }
     box.innerHTML = playerCard(D.players[S.sel], S.sel);
     const p = D.players[S.sel];
     redraw = () => pitch(document.getElementById('heat'), g => {
@@ -795,7 +783,7 @@ function tabEvents() {
       <span class="muted small" id="count"></span>
     </div>
     <div class="evmap">
-      <div class="card" style="padding:14px"><canvas id="evc"></canvas><div class="legend-o" id="leg"></div><p class="muted small" style="margin:8px 0 0">Every team is shown attacking left to right. Events with no calibrated pitch position are left out. ${M.unattributed_events} of ${M.events} events could not be credited to a profiled player and appear only under “All players”.</p></div>
+      <div class="card" style="padding:14px"><canvas id="evc"></canvas><div class="legend-o" id="leg"></div><p class="muted small" style="margin:8px 0 0">Every team is shown attacking left to right. Events with no calibrated pitch position are left out. ${M.unattributed_events} of ${M.events} events could not be credited to an analysed player and appear only under “All players”.</p></div>
       <div><div class="evlist" id="list"></div></div>
     </div>
   </div>`;
@@ -857,12 +845,13 @@ function tabAbout() {
     <div class="card"><h2>How accurate is it?</h2>
       <table class="acc"><thead><tr><th>Component</th><th>Measured on held-out ground truth</th></tr></thead><tbody>
         <tr><td>Passes</td><td>Precision ≈ 0.69, recall ≈ 0.70 (±1 s). Per-player pass counts correlate 0.89 with annotations.</td></tr>
-        <tr><td>Shots</td><td>Precision 0.71, recall 0.70 (held-out halves: 0.78 / 0.63).</td></tr>
+        <tr><td>Shots</td><td>Video model: precision 0.68, recall 0.72 on four held-out halves (58 labelled shots, ±2 s).</td></tr>
         <tr><td>Shirt numbers</td><td>80% of 1,211 test tracklets read correctly.</td></tr>
+        <tr><td>Naming players</td><td>On three unseen games the right player is named for 52% of visible time, and 95% of the names given are right.</td></tr>
         <tr><td>Attack direction</td><td>8 of 8 halves correct.</td></tr>
-        <tr><td>Tackles, blocks, crosses</td><td>Run low: about one tackle is found for every eight real ones.</td></tr>
+        <tr><td>Tackles, blocks, crosses</td><td>Run low: 1 of 26 tackles was found end to end on unseen games.</td></tr>
       </tbody></table>
-      <p class="muted small">The pass figures test the event logic on annotated positions, not the whole chain from video.</p>
+      <p class="muted small">The pass figures test the event logic on annotated positions, not the whole chain from video. Shot and naming figures are from held-out games.</p>
     </div>
     <div class="card"><h2>Read the numbers with these limits in mind</h2>
       <ul class="small" style="padding-left:18px;margin:8px 0 0;display:grid;gap:7px">
