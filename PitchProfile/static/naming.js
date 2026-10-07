@@ -30,20 +30,9 @@ function namingJoin(p,n){
   if(twin)return `Another player here also gets #${n}: they will be combined.`;
   return `New player: ${namingTeamName(data,p.team)} #${n}.`;
 }
-// A re-analysis can give a player a new id (a name, or unnamed players renumbered); the server
-// moves saved ratings, and this moves the unsaved drafts kept in this browser.
-function followMovedDrafts(data){
-  const moves=data.processing?.player_moves||{},stamp=data.processing?.created,mark='pitchprofile-moves:'+data.id;
-  if(!stamp||safeLocalGet(mark)===stamp)return;
-  const drafts=Object.entries(moves).map(([from,to])=>[draftKey(data.id,from),draftKey(data.id,to),safeLocalGet(draftKey(data.id,from))]);
-  for(const [from] of drafts)removeDraft(from);
-  for(const [,to,draft] of drafts)if(draft&&!safeLocalGet(to))safeLocalSet(to,draft);
-  safeLocalSet(mark,stamp);
-}
 function renderNaming(){
   const data=currentMatch(),panel=$('naming-panel');
   panel.hidden=!data;if(!data)return;
-  followMovedDrafts(data);
   if(naming.shown!==data.id){naming.shown=data.id;naming.numbers={};naming.crops={};}
   const all=data.players.filter(p=>p.unnamed),team=$('naming-team').value;
   $('naming-team').innerHTML='<option value="">Both teams</option>'+Object.keys(data.teams||{}).map(k=>`<option value="${esc(k)}">${esc(namingTeamName(data,k))}</option>`).join('');

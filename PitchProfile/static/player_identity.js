@@ -66,7 +66,7 @@ function openPlayerCorrection(notKeeper=false){
   $('identify-search').value='';$('correction-shirt').value=notKeeper?'':p.jersey??'';
   $('correction-name').value=notKeeper?'':p.identity_correction?.name||'';
   $('correction-note').value=notKeeper?'The highlighted player is not the goalkeeper.':p.identity_correction?.note||'';
-  $('correction-reviewer').value=safeLocalGet('pitchprofile-labeller')||$('mp-labeler').value||'';
+  $('correction-reviewer').value=safeLocalGet('pitchprofile-labeller')||'';
   $('identify-reviewer-details').open=!$('correction-reviewer').value.trim();
   $('identify-reviewer-label').textContent=$('correction-reviewer').value.trim()?'Reviewing as '+$('correction-reviewer').value.trim()+' · change':'Your name · enter once';
   $('identify-extra').open=false;$('correction-status').textContent='';

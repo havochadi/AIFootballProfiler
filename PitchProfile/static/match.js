@@ -8,8 +8,7 @@ const rateSuffix=()=>RATE_SUFFIX[matchState.basis];
 const clock=s=>s==null?'—':Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
 const SORT_VALUE={visible_seconds:p=>p.visible_seconds,distance_per_min_m:p=>p.physical?.distance_per_min_m,top_speed_kmh:p=>p.physical?.top_speed_kmh};
 function sortValue(p,key){return (SORT_VALUE[key]||(x=>perStat(x,key)))(p)??-1;}
-const EVIDENCE={model:'shot model',model_flight:'shot model; strike seen only in flight',flight:'ball flight towards goal',keeper:'keeper took the ball',unseen_flight:'ball lost near goal'};
-const evidence=e=>e.evidence?(EVIDENCE[e.evidence]||e.evidence)+(e.probability!=null?` (${Math.round(e.probability*100)}%)`:''):'';
+const evidence=e=>e.evidence||'';
 
 async function loadMatch(){
   const request=++matchState.request,id=state.manifest?.id;
@@ -35,10 +34,10 @@ function renderMatchPlayers(){
   const data=matchState.data;if(!data)return;
   const rows=data.players.filter(p=>!matchState.team||p.team===matchState.team).sort((a,b)=>sortValue(b,matchState.sort)-sortValue(a,matchState.sort));
   const unit=matchState.basis==='per100_touches'?' /100 t':' /90';
-  const head=['Player','Group','Visible','Pass'+unit,'Pass %','Prog.'+unit,'Carry'+unit,'Dribble'+unit,'Shot'+unit,'Tackle'+unit,'Int.'+unit,'Recov.'+unit,'Press.'+unit,'m/min','Top km/h','Label'];
+  const head=['Player','Group','Visible','Pass'+unit,'Pass %','Prog.'+unit,'Carry'+unit,'Dribble'+unit,'Shot'+unit,'Tackle'+unit,'Int.'+unit,'Recov.'+unit,'Press.'+unit,'m/min','Top km/h'];
   $('match-players').innerHTML='<div class="table-wrap"><table class="clickable"><thead><tr>'+head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(p=>{
     const o=p.on_ball||{},ph=p.physical||{};
-    return `<tr data-player="${esc(p.identity)}" class="${p.identity===state.pid?'selected':''}"><td><strong>${esc(p.name)}</strong></td><td>${esc((p.label?.position_group||p.position_group||'—').replaceAll('_',' '))}</td><td>${clock(p.visible_seconds)}</td><td>${num(perStat(p,'passes'))}</td><td>${o.pass_completion==null?'—':Math.round(o.pass_completion*100)+'%'}</td><td>${num(perStat(p,'progressive_passes'))}</td><td>${num(perStat(p,'carries'))}</td><td>${num(perStat(p,'dribbles'))}</td><td>${num(perStat(p,'shots'))}</td><td>${num(perStat(p,'tackles'))}</td><td>${num(perStat(p,'interceptions'))}</td><td>${num(perStat(p,'recoveries'))}</td><td>${num(perStat(p,'pressures'))}</td><td>${num(ph.distance_per_min_m)}</td><td>${num(ph.top_speed_kmh)}</td><td>${p.label?'Labelled':'—'}</td></tr>`;
+    return `<tr data-player="${esc(p.identity)}" class="${p.identity===state.pid?'selected':''}"><td><strong>${esc(p.name)}</strong></td><td>${esc((p.position_group||'—').replaceAll('_',' '))}</td><td>${clock(p.visible_seconds)}</td><td>${num(perStat(p,'passes'))}</td><td>${o.pass_completion==null?'—':Math.round(o.pass_completion*100)+'%'}</td><td>${num(perStat(p,'progressive_passes'))}</td><td>${num(perStat(p,'carries'))}</td><td>${num(perStat(p,'dribbles'))}</td><td>${num(perStat(p,'shots'))}</td><td>${num(perStat(p,'tackles'))}</td><td>${num(perStat(p,'interceptions'))}</td><td>${num(perStat(p,'recoveries'))}</td><td>${num(perStat(p,'pressures'))}</td><td>${num(ph.distance_per_min_m)}</td><td>${num(ph.top_speed_kmh)}</td></tr>`;
   }).join('')+'</tbody></table></div>';
   $('match-players').querySelectorAll('tr[data-player]').forEach(r=>r.onclick=handler(()=>selectPlayer(r.dataset.player)));
   $('mp-identities').innerHTML=data.players.map(p=>`<option value="${esc(p.identity)}">${esc(p.name)}</option>`).join('');
@@ -65,7 +64,7 @@ function playerStats(p,movementOnly=false){
 const PROFILE_SHARES=['pass_completion','take_on_success','between_lines_share'];
 function styleProfile(p){
   const pr=p.profile;
-  if(!pr)return '<p class="empty">Style profiles cover outfield players only.</p>';
+  if(!pr)return '<p class="empty">Percentile profiles cover outfield players only.</p>';
   const value=s=>s.value==null?'—':PROFILE_SHARES.includes(s.key)?pct(s.value):num(s.value);
   const peers=pr.peer_basis==='same position group'?`${pr.peers} ${String(pr.peer_group).replaceAll('_',' ')} appearances`:`${pr.peers} outfield appearances (too few in this position group)`;
   return `<p class="small muted">Percentile against ${esc(peers)}: the share of them with a lower value. Rates are per 90 minutes of identified screen time; tackles, blocks, headers, crosses and lofted passes are expected counts from the video model.${pr.eligible?'':' This player was identified for under 10 minutes, so treat the ranks with caution.'}</p>`+
@@ -176,16 +175,6 @@ $('mp-video').addEventListener('play',()=>requestAnimationFrame(videoLoop));
 $('mp-video').addEventListener('seeked',drawPlayerBox);
 
 
-function compatibleRoles(group){return intervalState.catalogue.roles.filter(r=>r.position_groups.includes(group));}
-function renderArchetypePrediction(pred){
-  if(!pred||pred.status!=='fitted'){$('mp-prediction').innerHTML=`<p class="empty">${esc(pred?.message||'No estimate yet.')}</p>`;return;}
-  const rows=Object.entries(pred.roles).filter(([,v])=>v!=null).sort((a,b)=>b[1]-a[1]);
-  const total=rows.reduce((s,[,v])=>s+v,0)||1;
-  $('mp-prediction').innerHTML=(pred.labelled?'<p class="small">This appearance is labelled; the values are your ratings.</p>':`<p class="small">Estimated from similar labelled players · support ${pct(pred.support)} · group ${esc(pred.position_group.replaceAll('_',' '))} (${esc(pred.group_source)}).</p>`)+
-    (rows.length?'<h4>Per-role rating</h4>'+bars(rows.map(([k,v])=>({label:names[k]||k,value:v})))+'<h4>Mixture</h4>'+bars(rows.map(([k,v])=>({label:names[k]||k,value:v/total*100}))):'<p class="empty">No labelled players of this position group are similar enough yet.</p>')+
-    `<p class="small muted">Fitted ${esc(pred.created)}. Low support means few similar labelled players; label more players of this group.</p>`;
-}
-
 $('team-names').onsubmit=handler(async e=>{e.preventDefault();await post(matchBase()+'/match/team-names',{A:$('team-a-name').value,B:$('team-b-name').value});notice('Team names saved.');await refreshSources(state.manifest.id);});
 $('mp-merge').onsubmit=handler(async e=>{e.preventDefault();const r=await post(matchBase()+'/match/identities',{source:state.pid,target:$('mp-merge-target').value.trim()});await monitor(r.job_id,state.manifest.id);});
 $('match-sort').onchange=()=>{matchState.sort=$('match-sort').value;renderMatchPlayers();};
@@ -193,29 +182,5 @@ $('match-basis').onchange=()=>{matchState.basis=$('match-basis').value;renderMat
 $('match-team-filter').onchange=()=>{matchState.team=$('match-team-filter').value;renderMatchPlayers();};
 document.querySelectorAll('[data-goto]').forEach(a=>a.onclick=handler(async e=>{e.preventDefault();await changeTab(a.dataset.goto);}));
 
-async function loadLearning(){
-  const summary=await api('/api/archetypes/summary');
-  await catalogueReady;
-  $('learn-summary').innerHTML=`<p>${summary.labelled} labelled player appearances.</p>`+table(['Position group','Labelled'],intervalState.catalogue.position_groups.map(g=>[g.name,summary.by_group[g.id]||0]));
-  $('learn-fit').disabled=!summary.labelled;
-  renderLearningReport(summary.fitted);
-  const analysed=state.datasets.filter(m=>String(m.analysis||'').startsWith('full-match'));
-  const current=$('learn-dataset').value;
-  $('learn-dataset').innerHTML='<option value="">All analysed matches</option>'+analysed.map(h=>`<option value="${esc(h.id)}">${esc(h.title)}</option>`).join('');
-  $('learn-dataset').value=analysed.some(h=>h.id===current)?current:'';
-  await loadPredictions();
-}
-function renderLearningReport(f){
-  if(!f){$('learn-report').innerHTML='<p class="empty">Not fitted yet.</p>';return;}
-  const rows=Object.entries(f.report.groups).map(([g,r])=>{const cv=r.cross_validation;return [String(g).replaceAll('_',' '),r.appearances,r.labelled,cv?num(cv.semi_supervised_mae_points):'needs ≥6 labels',cv?num(cv.labelled_only_knn_mae_points):'—',cv?.semi_supervised_top_role_agreement==null?'—':pct(cv.semi_supervised_top_role_agreement)];});
-  $('learn-report').innerHTML=`<p class="small">Fitted ${esc(f.created)} on ${f.appearances} appearances (${f.labelled} labelled). ${esc(f.method)}</p>`+table(['Group','Appearances','Labelled','Semi-supervised error (points)','Labelled-only kNN error','Top role agreement'],rows)+'<p class="small muted">Errors are mean absolute differences in percentage points on whole matches held out in turn.</p>';
-}
-async function loadPredictions(){
-  const r=await api('/api/archetypes/predictions?dataset_id='+encodeURIComponent($('learn-dataset').value));
-  if(r.status!=='fitted'){$('learn-predictions').innerHTML='<p class="empty">Fit the model to see estimated profiles.</p>';return;}
-  $('learn-predictions').innerHTML=table(['Match','Player','Group','Source','Top roles','Support'],r.predictions.slice(0,500).map(p=>{const top=Object.entries(p.roles).filter(([,v])=>v!=null).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${names[k]||k} ${Math.round(v)}%`).join(', ');return [p.dataset_id,p.player_id,p.position_group.replaceAll('_',' '),p.labelled?'your label':'estimated',top||'—',pct(p.support)];}));
-}
-$('learn-fit').onclick=handler(async()=>{const r=await post('/api/archetypes/fit',{});await monitor(r.job_id);await loadLearning();});
-$('learn-dataset').onchange=handler(loadPredictions);
 window.addEventListener('profilechange',handler(async()=>{if(state.tab!=='match')return;if(matchState.data?.id!==state.manifest?.id)await loadMatch();else await showMatchPlayer();}));
-window.addEventListener('tabchange',handler(async()=>{if(state.tab==='match'){if(matchState.data?.id!==state.manifest?.id)await loadMatch();else await showMatchPlayer();}if(state.tab==='learning')await loadLearning();if(state.tab==='data')await loadMatchLibrary();}));
+window.addEventListener('tabchange',handler(async()=>{if(state.tab==='match'){if(matchState.data?.id!==state.manifest?.id)await loadMatch();else await showMatchPlayer();}if(state.tab==='data')await loadMatchLibrary();}));

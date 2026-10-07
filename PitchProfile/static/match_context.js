@@ -37,29 +37,16 @@ function renderPlayerIdentity(){
   $('mp-not-goalkeeper').hidden=String(p.role).toLowerCase()!=='goalkeeper';
   $('mp-correct-player').textContent=['confirmed','corrected'].includes(p.identity_status)?'Change player':'Identify player';
   $('identity-save-status').textContent=['confirmed','corrected'].includes(p.identity_status)?'Identity saved':'Check the player in the yellow box';
-  updateIdentityGroupWarning();
 }
 
-function updateIdentityGroupWarning(){
-  const p=currentMatch()?.players.find(p=>p.identity===state.pid),reviewed=p?.identity_correction||p?.identity_status==='confirmed';
-  const conflict=reviewed&&((String(p.role).toLowerCase()==='goalkeeper')!==($('mp-group').value==='goalkeeper'));
-  $('mp-group-warning').hidden=!conflict;
-  $('mp-group-warning').textContent='The corrected identity and these ratings use different position groups. Choose the appropriate group before saving. Existing ratings and drafts are retained.';
-}
 async function refreshCorrectedPlayer(id,pid){
   const root='/api/datasets/'+encodeURIComponent(id);
-  const [match,profile,dataset,archetype]=await Promise.all([api(root+'/match'),api(root+'/players/'+encodeURIComponent(pid)),api(root),api(root+'/players/'+encodeURIComponent(pid)+'/archetype')]);
+  const [match,profile,dataset]=await Promise.all([api(root+'/match'),api(root+'/players/'+encodeURIComponent(pid)),api(root)]);
   if(state.manifest?.id!==id||state.pid!==pid)return;
   matchState.data=match;state.player=profile;state.profiles=dataset.profiles;
-  const p=match.players.find(p=>p.identity===pid);
-  if(p&&!reviewDesk.dirty&&!reviewDesk.saved){
-    $('mp-group').value=p.position_group||'central_midfield';reviewDesk.group=$('mp-group').value;renderRoleSliders(reviewDesk.group,{});
-  }
   renderMatchPlayers();renderPlayers();renderPlayerIdentity();
-  renderArchetypePrediction(archetype.prediction);
   if(eventMap.data)renderEventMap();
 }
-$('mp-group').addEventListener('change',updateIdentityGroupWarning);
 
 async function refreshConnectedPlayer(id,pid){
   if(state.manifest?.id!==id)return;

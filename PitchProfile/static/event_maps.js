@@ -37,7 +37,7 @@ function pitchLines(){
 }
 function renderEventMap(){
   const data=eventMap.data;if(!data)return;
-  $('event-kind-buttons').innerHTML=`<button type="button" data-kind="profile" aria-pressed="${eventMap.kind==='profile'}">Style profile</button><button type="button" data-kind="movement" aria-pressed="${eventMap.kind==='movement'}">Movement</button>`+Object.entries(eventNames).map(([k,n])=>`<button type="button" data-kind="${k}" aria-pressed="${eventMap.kind===k}">${n}<span>${data.events.filter(e=>e.type===k).length}</span></button>`).join('');
+  $('event-kind-buttons').innerHTML=`<button type="button" data-kind="profile" aria-pressed="${eventMap.kind==='profile'}">Percentile profile</button><button type="button" data-kind="movement" aria-pressed="${eventMap.kind==='movement'}">Movement</button>`+Object.entries(eventNames).map(([k,n])=>`<button type="button" data-kind="${k}" aria-pressed="${eventMap.kind===k}">${n}<span>${data.events.filter(e=>e.type===k).length}</span></button>`).join('');
   $('movement-evidence').hidden=eventMap.kind!=='movement';$('profile-evidence').hidden=eventMap.kind!=='profile';
   $('event-map-content').hidden=panelKinds.includes(eventMap.kind);
   if(eventMap.kind==='profile')$('mp-profile').innerHTML=styleProfile(currentMatch()?.players.find(p=>p.identity===state.pid)||{});
@@ -82,7 +82,7 @@ function selectMappedEvent(id){
   $('selected-event-title').textContent=eventNames[e.type]+' · '+clock(e.time_s)+' · '+outcomeNames[e.outcome];
   $('selected-event-description').textContent=(e.outcome_source==='reviewed'?'Reviewed by '+e.review.reviewer:e.outcome_source==='unclassified'?'Outcome not classified by the detector':'Outcome inferred by the video model')+(e.length_m!=null?' · '+num(e.length_m)+' m':'')+'. Watch the source moment before confirming an outcome.';
   $('selected-event-outcome').innerHTML=eventMap.data.outcomes[e.type].map(k=>`<option value="${k}">${outcomeNames[k]}</option>`).join('');$('selected-event-outcome').value=e.outcome;
-  $('selected-event-reviewer').value=e.review?.reviewer||$('mp-labeler').value||safeLocalGet('pitchprofile-labeller')||'';
+  $('selected-event-reviewer').value=e.review?.reviewer||safeLocalGet('pitchprofile-labeller')||'';
   $('selected-event-note').value=e.review?.notes||'';$('event-outcome-status').textContent='';
   const p=currentMatch()?.players.find(p=>p.identity===state.pid),c=currentMatch()?.match_context?.context;
   const normalized=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
