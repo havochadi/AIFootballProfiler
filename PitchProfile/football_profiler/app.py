@@ -5,11 +5,10 @@ import threading
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 import cv2
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.responses import FileResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
