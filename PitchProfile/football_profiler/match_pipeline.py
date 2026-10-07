@@ -664,12 +664,53 @@ def analyse_soccernet(library_id, progress=lambda *a: None, **detection_options)
     return {'dataset_id': identifier, **postprocess_meta.get('postprocess', {})}
 
 
+def shift_spots(spots, fps, start_frame, stop_frame, time_origin_s, stride):
+    """Spots of a whole video, kept to the analysed interval and put on the half's own time axis.
+
+    time_s is the video time minus time_origin_s and frame counts from the same origin, as in the
+    detection pass; spots outside [start_frame, stop_frame] are dropped.
+    """
+    lo, hi = start_frame / fps, stop_frame / fps
+    shift = int(round(time_origin_s * fps / stride))
+    return [{**s, 'time_s': s['time_s'] - time_origin_s, 'frame': s['frame'] - shift}
+            for s in spots if lo <= s['time_s'] <= hi]
+
+
+def spot_actions(identifier, video_path, detection, progress=lambda *a: None, force=False):
+    """Run the video action spotter on the analysed video and store action_spots.json.
+
+    Shots, tackles, blocks, headers and set pieces come from it (merge_spotted). An existing
+    action_spots.json is kept unless force. Returns a status dict for analysis.json; a missing
+    devkit or checkpoint, or any failure, is reported there instead of stopping the analysis.
+    """
+    from . import action_spotting as AS
+    target = S.dataset_dir(identifier) / 'action_spots.json'
+    if target.is_file() and not force:
+        return {'status': 'kept existing spots'}
+    if not AS.available():
+        return {'status': 'not run: action-spotter devkit or checkpoint missing'}
+    started = time.perf_counter()
+    try:
+        fps = float(detection.get('source_fps') or 25.0)
+        start, stop = int(detection.get('start_frame') or 0), int(detection.get('stop_frame') or 0)
+        result = AS.spot_video(video_path, progress, max_frames=(stop // AS.FRAME_STRIDE + 1) if stop else None)
+        origin = float(detection.get('time_origin_s') or 0.0)
+        spots = shift_spots(result['spots'], fps, start, stop, origin, AS.FRAME_STRIDE) if stop else result['spots']
+        S.write_json(target, {**{k: v for k, v in result.items() if k != 'spots'}, 'spots': spots,
+                              'time_origin_s': origin, 'created': S.now()})
+    except Exception as exc:                          # the analysis still completes without spotted actions
+        return {'status': f'failed: {type(exc).__name__}: {exc}'[:300]}
+    return {'status': 'run', 'spots': len(spots), 'wall_seconds': round(time.perf_counter() - started, 1)}
+
+
 def analyse(identifier, video_path, *, title, meta=None, progress=lambda *a: None, **detection_options):
-    """Detection pass followed by post-processing, with progress mapped onto one job."""
+    """Detection pass, action spotting, then post-processing, with progress mapped onto one job."""
     from .match_analysis import detection_pass
     S.dataset_dir(identifier, create=True)
-    detection = detection_pass(identifier, video_path, progress=lambda f, m: progress(f * .85, m), **detection_options)
+    detection = detection_pass(identifier, video_path, progress=lambda f, m: progress(f * .6, m), **detection_options)
     info = {**(meta or {}), 'title': title, 'detection': detection, 'video_name': str(video_path).split('\\')[-1].split('/')[-1],
             'created': S.now()}
+    S.write_json(S.dataset_dir(identifier) / 'analysis.json', info)
+    info['action_spotting'] = spot_actions(identifier, video_path, detection, progress=lambda f, m: progress(.6 + f * .25, m))
     S.write_json(S.dataset_dir(identifier) / 'analysis.json', info)
     return postprocess(identifier, progress=lambda f, m: progress(.85 + f * .15, m))
