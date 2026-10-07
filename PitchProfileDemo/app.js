@@ -6,9 +6,9 @@ const TEAMS = {A: {name: D.teams.A.name, short: D.teams.A.short, colour: '#d6332
                B: {name: D.teams.B.name, short: D.teams.B.short, colour: '#2563eb'}};
 const TEAM_IDX = ['A', 'B'];
 const app = document.getElementById('app');
-// real analysis time / video length on an RTX 3090: measured detection + CPU stages of this half, plus about 1 min of
+// real analysis time / video length on an RTX 3090: measured detection + CPU stages of both halves, plus about 1 min of
 // thumbnails and 5 min of action spotting per half (README figures)
-const REAL_FACTOR = (RUN.detect_wall_s + 360 + RUN.cpu_wall_s) / M.duration_s;
+const REAL_FACTOR = (RUN.detect_wall_s + 360 * RUN.halves + RUN.cpu_wall_s) / M.duration_s;
 const DEMO_SECONDS = 36;           // how long the simulated analysis plays
 const MIN_RECOMMENDED_MIN = 10;    // every analysed half had at least 13 players past the 2-minute threshold by then
 const MIN_BLOCKED_MIN = 3;
@@ -27,6 +27,7 @@ const S = {
   tab: 'overview', sel: null, sort: {k: 'visible_s', dir: -1}, team: 'all', q: '', basis: 'total',
   ev: {kind: 'pass', team: 'all', player: 'all', mode: 'routes', sel: -1},   // player defaults to the top passer below
   track: {clip: 0, boxes: true, labels: true, ball: true, sel: null},
+  showShort: false,                // also list players seen for under 10 minutes
 };
 let stop = () => {};               // cancels the running animation of the view being left
 let redraw = () => {};             // redraws the canvases of the visible view (on resize)
@@ -270,17 +271,17 @@ function viewUpload() {
           <div class="drop" id="drop">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9.5 5 2.5-5 2.5z"/></svg>
             <div class="big">Drop a football match video here</div>
-            <div class="muted small">mp4 · mkv · mov · avi · webm &nbsp;|&nbsp; ${MIN_RECOMMENDED_MIN} minutes up to a full half</div>
+            <div class="muted small">mp4 · mkv · mov · avi · webm &nbsp;|&nbsp; ${MIN_RECOMMENDED_MIN} minutes up to a full match</div>
             <p style="margin:16px 0 0"><button class="primary" id="pick">Choose a video</button></p>
             <input type="file" id="file" accept="video/*,.mkv,.ts" hidden>
             <div class="or">or</div>
-            <p style="margin:8px 0 0"><button id="sample">Use the sample match: ${esc(M.title)}, 1st half</button></p>
+            <p style="margin:8px 0 0"><button id="sample">Use the sample match: ${esc(M.title)}, ${esc(M.scope)}</button></p>
           </div>
         </div>
         ${have ? `<div class="card fade" style="margin-top:18px">
           <div class="file">
             <span class="eyebrow">Selected</span>
-            <span class="name">${S.file ? esc(S.file.name) : `${esc(M.title)} · 1st half (sample, 720p broadcast)`}</span>
+            <span class="name">${S.file ? esc(S.file.name) : `${esc(M.title)} · ${esc(M.scope)} (sample, 720p broadcast)`}</span>
             <span class="eyebrow">Length</span>
             <span>${unreadable ? `<input type="number" id="manual" min="0.5" max="150" step="0.5" value="${S.manualMin}" style="width:90px"> minutes` : `<b class="num">${mmss(secs)}</b> <span class="muted">(${mins(secs)})</span>`}</span>
             ${S.file ? `<span class="eyebrow">Size</span><span>${fmt(S.file.size / 1048576, S.file.size < 1.05e7 ? 1 : 0)} MB</span>` : ''}
@@ -341,7 +342,7 @@ function viewProcessing() {
     {t: 'Finding camera cuts', d: 'Broadcast footage cuts between cameras. Each cut is found so that no identity is carried across it by mistake.', s: 'Tracking restarts after every cut', a: .04, b: .46, c: p => `${fmt(p * RUN.cuts * scale)} cuts`},
     {t: 'Mapping the pitch', d: 'Pitch lines and corners are located in the image, which maps every player from camera pixels to metres on the pitch (the pitch view on the right).', s: 'Pitch keypoints → image-to-pitch homography', a: .08, b: .52, c: p => `${fmt(p * M.pitch_view * 100)}% of frames`},
     {t: 'Separating the teams', d: 'Shirt colours are clustered into two teams, so the boxes turn red and blue. Referees are told apart by the detector.', s: 'Kit colour clustering; referees by detector class', a: .5, b: .58, c: p => p < 1 ? '…' : '2 teams + referees'},
-    {t: 'Reconstructing the ball path', d: 'The ball is small and often hidden. One most-likely path is chosen for the whole half and short gaps are filled (yellow ring).', s: 'Ball detector + shortest path over the half', a: .54, b: .66, c: p => `${fmt(p * M.ball_seen * 100)}% located`},
+    {t: 'Reconstructing the ball path', d: 'The ball is small and often hidden. One most-likely path is chosen for each half and short gaps are filled (yellow ring).', s: 'Ball detector + shortest path over each half', a: .54, b: .66, c: p => `${fmt(p * M.ball_seen * 100)}% located`},
     {t: 'Reading shirt numbers, linking players', d: 'Shirt numbers are read from player thumbnails; players without a readable number are matched by appearance across cuts. Boxes gain their number.', s: 'Number reader + appearance matching across cuts', a: .62, b: .82, c: p => `${fmt(p * RUN.numbers_read * scale)} numbers read`},
     {t: 'Detecting events', d: 'Passes, carries, take-ons, interceptions, recoveries and pressures come from positions and the ball path. Shots and tackles come from a video action model.', s: 'Passes, carries, shots, tackles, interceptions, …', a: .76, b: .92, c: p => `${fmt(p * M.events * scale)} events`},
     {t: 'Computing player statistics', d: 'Distance, speed, heatmaps, on-ball and defending numbers are totalled for every identified player and for both teams.', s: 'Physical, on-ball, defending and off-ball measures', a: .9, b: 1, c: p => `${fmt(Math.round(p * M.profiled))} players`},
@@ -350,13 +351,13 @@ function viewProcessing() {
   <div class="fade">
     <div class="eyebrow">Step 2 of 3</div>
     <h1>Analysing the match…</h1>
-    <p class="muted" style="max-width:820px">This is a ${DEMO_SECONDS}-second replay of a real run. A clip this long takes about <b>${mins(real)}</b> on an RTX 3090, so the demo plays back the stored result for the sample half over its real footage. Watch the boxes gain team colours, shirt numbers and the ball as each stage completes.</p>
+    <p class="muted" style="max-width:820px">This is a ${DEMO_SECONDS}-second replay of a real run. A clip this long takes about <b>${mins(real)}</b> on an RTX 3090, so the demo plays back the stored result for the sample match over its real footage. Watch the boxes gain team colours, shirt numbers and the ball as each stage completes.</p>
     <div class="proc" style="margin:18px 0">
       <div class="card">
         <h2>${sampleFootage ? 'Match footage' : 'Your video'}</h2>
         <div class="vbox" id="vbox"><video id="pv" muted playsinline preload="auto"></video><canvas id="pov"></canvas><div class="vmsg" id="pmsg" hidden></div></div>
         <dl class="meta">
-          <dt>File</dt><dd>${S.file ? esc(S.file.name) : `${esc(M.title)} · 1st half`}</dd>
+          <dt>File</dt><dd>${S.file ? esc(S.file.name) : `${esc(M.title)} · ${esc(M.scope)}`}</dd>
           <dt>Length</dt><dd>${mmss(secs)} (${mins(secs)})</dd>
           <dt>Picture</dt><dd>${S.file && S.probe && S.probe.h ? `${S.probe.w}×${S.probe.h}` : '1280×720 · 25 fps broadcast'}</dd>
         </dl>
@@ -380,7 +381,7 @@ function viewProcessing() {
         <button class="primary" id="open" style="margin-left:auto">Open the match report →</button>
       </div>
     </div>
-    <p class="muted small" style="margin-top:14px">Real timings for the sample half (${mins(M.duration_s)}): detection and tracking ${mins(RUN.detect_wall_s)} on the GPU, thumbnails ≈ 1 min, action spotting ≈ 5 min, then ${mins(RUN.cpu_wall_s)} of CPU stages for teams, ball, events, identities and statistics.</p>
+    <p class="muted small" style="margin-top:14px">Real timings for the sample match (${mins(M.duration_s)}, both halves): detection and tracking ${mins(RUN.detect_wall_s)} on the GPU, thumbnails ≈ 1 min, action spotting ≈ 5 min, then ${mins(RUN.cpu_wall_s)} of CPU stages for teams, ball, events, identities and statistics.</p>
   </div>`;
 
   const v = document.getElementById('pv'), ov = document.getElementById('pov'), msg = document.getElementById('pmsg');
@@ -444,7 +445,7 @@ function viewResults() {
   app.innerHTML = `
   <div class="fade">
     <div class="hero">
-      <div><div class="eyebrow">Step 3 of 3 · Match report</div><h1>${esc(M.title)} · 1st half</h1>
+      <div><div class="eyebrow">Step 3 of 3 · Match report</div><h1>${esc(M.title)} · ${esc(M.scope)}</h1>
         <div class="muted">${esc(M.competition)} · ${esc(M.date)} · ${mmss(M.duration_s)} of broadcast video analysed · kit groups named from the on-screen scoreboard:
         <b style="color:var(--a)">${esc(TEAMS.A.name)}</b> (red) and <b style="color:var(--b)">${esc(TEAMS.B.name)}</b> (blue)</div></div>
       <div><button id="again">← Analyse another video</button></div>
@@ -452,7 +453,7 @@ function viewResults() {
     ${uploaded ? `<div class="note" style="margin-bottom:16px"><b>Demo note:</b> a real analysis of <i>${esc(S.file.name)}</i> (${mins(secs)}) would take about ${mins(secs * REAL_FACTOR)}. The report below is the stored result of the sample match, so you can see exactly what comes out.</div>` : ''}
     <div class="kpis">
       <div class="kpi"><span>Video analysed</span><strong class="num">${mmss(M.duration_s)}</strong></div>
-      <div class="kpi"><span>Players profiled</span><strong class="num">${M.profiled}</strong></div>
+      <div class="kpi"><span>Players profiled (10+ min on screen)</span><strong class="num">${M.profiled}</strong></div>
       <div class="kpi"><span>Events mapped</span><strong class="num">${fmt(M.events)}</strong></div>
       <div class="kpi"><span>Pitch in view</span><strong class="num">${fmt(M.pitch_view * 100)}%</strong></div>
       <div class="kpi"><span>Ball located</span><strong class="num">${fmt(M.ball_seen * 100)}%</strong></div>
@@ -494,7 +495,7 @@ function tabOverview() {
     return `<div class="row"><div class="lab">${l}</div><span class="v" style="color:var(--a)">${f(a)}</span><div class="track"><i style="width:${a / t * 100}%;background:var(--a)"></i><i style="width:${b / t * 100}%;background:var(--b)"></i></div><span class="v" style="color:var(--b)">${f(b)}</span></div>`;
   }).join('');
   const P = D.players;
-  const best = (f, filter = () => true) => P.filter(filter).reduce((m, p) => f(p) > f(m) ? p : m);
+  const best = (f, filter = () => true) => P.filter(p => !p.short && filter(p)).reduce((m, p) => f(p) > f(m) ? p : m);
   const leaders = [
     ['Most distance', best(p => p.distance_m), p => `${fmt(p.distance_m / 1000, 1)} km`],
     ['Top speed', best(p => p.top_kmh), p => `${fmt(p.top_kmh, 1)} km/h`],
@@ -515,7 +516,7 @@ function tabOverview() {
     </div>
     <div style="display:grid;gap:20px;align-content:start">
       <div class="card"><h2>Standout players</h2><p class="muted small">Click a player to open the full profile.</p><div class="leaders">${leaders}</div></div>
-      <div class="card"><h2>Ball activity through the half</h2><p class="muted small">Touches by team in each 5-minute block.</p>${timeline()}</div>
+      <div class="card"><h2>Ball activity through the match</h2><p class="muted small">Touches by team in each 5-minute block of video time.</p>${timeline()}</div>
     </div>
   </div>
   <div class="card fade" style="margin-top:20px">
@@ -538,11 +539,13 @@ function timeline() {
   const bw = (W - pad.l - pad.r) / T.length, sy = v => (H - pad.t - pad.b) * v / mx;
   let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Touches by team per five-minute block">`;
   for (const v of [0, Math.round(mx / 2), mx]) { const y = H - pad.b - sy(v); svg += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="#e1e9e4"/><text x="${pad.l - 6}" y="${y + 4}" font-size="10" fill="#586b65" text-anchor="end">${v}</text>`; }
+  const half = pad.l + 9 * bw;     // video time 45:00, where the second half starts
+  svg += `<line x1="${half}" x2="${half}" y1="${pad.t}" y2="${H - pad.b}" stroke="#7d8f88" stroke-dasharray="4 4"/><text x="${half + 5}" y="${pad.t + 12}" font-size="10" fill="#586b65">2nd half</text>`;
   T.forEach(([a, b], i) => {
     const x = pad.l + i * bw + bw * .14, w = bw * .72;
     svg += `<rect x="${x}" y="${H - pad.b - sy(a)}" width="${w}" height="${sy(a)}" fill="var(--a)" rx="2"><title>${i * 5}–${i * 5 + 5} min · ${esc(TEAMS.A.name)} ${a} touches</title></rect>`;
     svg += `<rect x="${x}" y="${H - pad.b - sy(a) - sy(b) - 1}" width="${w}" height="${sy(b)}" fill="var(--b)" rx="2"><title>${i * 5}–${i * 5 + 5} min · ${esc(TEAMS.B.name)} ${b} touches</title></rect>`;
-    svg += `<text x="${x + w / 2}" y="${H - 8}" font-size="10" fill="#586b65" text-anchor="middle">${i * 5}–${i * 5 + 5}'</text>`;
+    svg += `<text x="${x + w / 2}" y="${H - 8}" font-size="10" fill="#586b65" text-anchor="middle">${i * 5}'</text>`;
   });
   return svg + '</svg>';
 }
@@ -586,10 +589,10 @@ function tabTracking() {
 
   const card = () => {
     const box = document.getElementById('pcard');
-    if (T.sel == null) { box.innerHTML = '<p class="muted small" style="margin:0">Select a player to see their numbers for the half.</p>'; return; }
+    if (T.sel == null) { box.innerHTML = '<p class="muted small" style="margin:0">Select a player to see their numbers for the match.</p>'; return; }
     const p = D.players[T.sel], on = p.on;
     box.innerHTML = `<div style="display:flex;gap:8px;align-items:center"><i class="tdot" style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${TEAMS[p.team].colour}"></i><b>${esc(p.name)}</b></div>
-      <div class="muted small">${p.position} · ${mmss(p.visible_s)} on screen in the half</div>
+      <div class="muted small">${p.position} · ${mmss(p.visible_s)} on screen in the match</div>
       <div class="stat-grid" style="margin-top:10px;grid-template-columns:repeat(2,1fr)">
         <div class="stat"><span>Distance</span><strong>${fmt(p.distance_m / 1000, 2)} km</strong></div>
         <div class="stat"><span>Top speed</span><strong>${fmt(p.top_kmh, 1)} km/h</strong></div>
@@ -674,6 +677,7 @@ function tabPlayers() {
       <div class="seg" id="teamseg" role="group" aria-label="Team">${[['all', 'Both teams'], ['A', TEAMS.A.short], ['B', TEAMS.B.short]].map(([k, l]) => `<button data-t="${k}" aria-pressed="${S.team === k}">${esc(l)}</button>`).join('')}</div>
       <div class="seg" id="basisseg" role="group" aria-label="Basis">${[['total', 'Totals'], ['per90', 'Per 90 min on screen']].map(([k, l]) => `<button data-b="${k}" aria-pressed="${S.basis === k}">${l}</button>`).join('')}</div>
       <input type="search" id="q" placeholder="Search a player or number" value="${esc(S.q)}" aria-label="Search players" style="min-width:210px">
+      <label class="check"><input type="checkbox" id="short" ${S.showShort ? 'checked' : ''}> Include short appearances (${D.players.filter(p => p.short).length} players under 10 min)</label>
       <button id="csv" style="margin-left:auto">Download CSV</button>
     </div>
     <div class="twrap"><table class="pt" id="pt"></table></div>
@@ -682,7 +686,7 @@ function tabPlayers() {
   </div>`;
   const draw = () => {
     const q = S.q.trim().toLowerCase();
-    let list = D.players.map((p, i) => ({p, i})).filter(({p}) => (S.team === 'all' || p.team === S.team) && (!q || p.name.toLowerCase().includes(q) || p.position.toLowerCase().includes(q)));
+    let list = D.players.map((p, i) => ({p, i})).filter(({p}) => (S.showShort || !p.short) && (S.team === 'all' || p.team === S.team) && (!q || p.name.toLowerCase().includes(q) || p.position.toLowerCase().includes(q)));
     const col = COLS.find(c => c.k === S.sort.k);
     list.sort((a, b) => ((colValue(col, a.p) ?? -1) - (colValue(col, b.p) ?? -1)) * S.sort.dir);
     document.getElementById('pt').innerHTML = `<thead><tr><th>Player</th>${COLS.map(c => `<th data-k="${c.k}" class="${S.sort.k === c.k ? 'sorted' : ''}" title="Sort">${c.l}${c.dag ? DAG : ''}${S.sort.k === c.k ? (S.sort.dir < 0 ? ' ↓' : ' ↑') : ''}</th>`).join('')}</tr></thead><tbody>${list.map(({p, i}) => {
@@ -711,6 +715,7 @@ function tabPlayers() {
   document.getElementById('basisseg').onclick = e => { const b = e.target.closest('[data-b]'); if (b) { S.basis = b.dataset.b; tabPlayers(); } };
   document.getElementById('q').oninput = e => { S.q = e.target.value; draw(); };
   document.getElementById('csv').onclick = exportCsv;
+  document.getElementById('short').onchange = e => { S.showShort = e.target.checked; draw(); };
   document.getElementById('pt').onclick = e => {
     const th = e.target.closest('th[data-k]'), tr = e.target.closest('tr[data-i]');
     if (th) { S.sort = {k: th.dataset.k, dir: S.sort.k === th.dataset.k ? -S.sort.dir : -1}; draw(); }
@@ -779,7 +784,7 @@ function filteredEvents() {
 }
 function tabEvents() {
   const E = S.ev;
-  const playerOpts = D.players.map((p, i) => ({p, i})).filter(({p}) => E.team === 'all' || p.team === E.team).map(({p, i}) => `<option value="${i}" ${String(i) === E.player ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+  const playerOpts = D.players.map((p, i) => ({p, i})).filter(({p, i}) => (!p.short || String(i) === E.player) && (E.team === 'all' || p.team === E.team)).map(({p, i}) => `<option value="${i}" ${String(i) === E.player ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
   document.getElementById('tab').innerHTML = `
   <div class="fade">
     <div class="tools"><div class="chips" id="kinds" role="group" aria-label="Event type">${D.events.types.map(k => `<button data-k="${k}" aria-pressed="${E.kind === k}">${EV_LABEL[k]}${['tackle', 'block', 'header'].includes(k) ? '†' : ''}</button>`).join('')}</div></div>
@@ -841,10 +846,10 @@ function tabAbout() {
   <div class="about-grid fade">
     <div class="card"><h2>How the report was made</h2><ol class="pipe">
       <li><div><b>Sample</b><span>12.5 frames per second from the 25 fps video.</span></div></li>
-      <li><div><b>Detect and track</b><span>Players, goalkeepers, referees and the ball are detected, then followed within each camera shot (${RUN.cuts} cuts in this half).</span></div></li>
+      <li><div><b>Detect and track</b><span>Players, goalkeepers, referees and the ball are detected, then followed within each camera shot (${RUN.cuts} cuts in this match).</span></div></li>
       <li><div><b>Map to the pitch</b><span>Pitch keypoints give an image-to-pitch mapping, so every position is in metres on a 105 × 68 m pitch.</span></div></li>
       <li><div><b>Teams and direction</b><span>Kit colours split two teams; attack direction comes from where each team stands.</span></div></li>
-      <li><div><b>Ball and possession</b><span>One ball path over the half; touches and possession spells follow from it.</span></div></li>
+      <li><div><b>Ball and possession</b><span>One ball path over each half; touches and possession spells follow from it.</span></div></li>
       <li><div><b>Events</b><span>Passes, carries, take-ons, interceptions, recoveries, pressures by rules; shots, tackles, blocks, headers by a video action-spotting model.</span></div></li>
       <li><div><b>Identity</b><span>Shirt numbers are read from thumbnails (${fmt(RUN.numbers_read)} readings here), and unnumbered tracks are matched by appearance.</span></div></li>
       <li><div><b>Statistics</b><span>Per player and per team, from positions, ball and events.</span></div></li>
@@ -861,7 +866,7 @@ function tabAbout() {
     </div>
     <div class="card"><h2>Read the numbers with these limits in mind</h2>
       <ul class="small" style="padding-left:18px;margin:8px 0 0;display:grid;gap:7px">
-        <li><b>Only what the camera shows.</b> About ${fmt(M.pitch_view * 100)}% of this half was a usable pitch view. Players off screen get no distance or events.</li>
+        <li><b>Only what the camera shows.</b> About ${fmt(M.pitch_view * 100)}% of this match was a usable pitch view. Players off screen get no distance or events.</li>
         <li><b>Identity is partial.</b> Roughly half of player time is tied to a named shirt number; the rest sits under “unnumbered” tracks, and some players are split across several of them.</li>
         <li><b>Edge and foreground players can be missed.</b> The Live tracking tab shows it: a player very close to the camera or at the picture edge sometimes gets no box.</li>
         <li><b>The ball has no height,</b> so lofted passes and headers are the least reliable events.</li>
@@ -870,7 +875,7 @@ function tabAbout() {
       </ul>
     </div>
     <div class="card"><h2>Run it on your own video</h2>
-      <p class="small">The full pipeline runs locally on an NVIDIA GPU: about ${fmt(REAL_FACTOR, 2)}× the video’s length on an RTX 3090 (${mins(M.duration_s * REAL_FACTOR)} for this 45-minute half). The detection pass alone took ${mins(RUN.detect_wall_s)}. Everything after it can be re-run in a few minutes from saved evidence.</p>
+      <p class="small">The full pipeline runs locally on an NVIDIA GPU: about ${fmt(REAL_FACTOR, 2)}× the video’s length on an RTX 3090 (${mins(M.duration_s * REAL_FACTOR)} for this ${mins(M.duration_s)} match). The detection pass alone took ${mins(RUN.detect_wall_s)}. Everything after it can be re-run in a few minutes from saved evidence.</p>
       <p class="small muted">This demo replays that stored result, so a ten-minute presentation does not wait for a half-hour job.</p>
     </div>
   </div>`;

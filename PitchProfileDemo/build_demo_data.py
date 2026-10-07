@@ -1,6 +1,6 @@
-"""Build data.js for the PitchProfile demo site from one really analysed half.
+"""Build data.js for the PitchProfile demo site from one really analysed whole match.
 
-Reads the app's output for a half (match_stats.json, manifest.json, events.json,
+Reads the app's output for the match (both halves merged) (match_stats.json, manifest.json, events.json,
 tracks.csv.gz, ball.csv.gz, analysis.json) from the data drive and writes a compact
 numbers-only script, so the demo contains no footage and no frames.
 
@@ -13,18 +13,21 @@ import numpy as np
 import pandas as pd
 
 DATA = Path(r'D:\CVDL Football Data\PitchProfile\data\datasets')
-IDENTIFIER = 'sn-20160207-chelsea-manchester-united-h1'
+IDENTIFIER = 'sn-20160207-chelsea-manchester-united'      # both halves merged by the app (second half mirrored)
 # Kit groups are anonymous in the pipeline. These names were confirmed by eye on a frame with the
 # broadcast scoreboard ("CHE 0-0 MU"): red kit = group A = Manchester United, blue = group B = Chelsea.
 TEAM_NAMES = {'A': ('Manchester United', 'Man United'), 'B': ('Chelsea', 'Chelsea')}
-MATCH = {'title': 'Chelsea v Manchester United', 'competition': 'Premier League', 'date': '7 Feb 2016', 'half': 1}
-VIDEO = {'path': 'D:/CVDL Football Data/SoccerNet/videos-720p/england_epl/2015-2016/'
-                 '2016-02-07 - 19-00 Chelsea 1 - 1 Manchester United/1_720p.mkv', 'name': '1_720p.mkv'}
-CLIPS = [(0, 'Kick-off'), (781, 'Open play'), (1256, 'Contains a model-detected shot'), (1730, 'Open play, second passage')]
+MATCH = {'title': 'Chelsea v Manchester United', 'competition': 'Premier League', 'date': '7 Feb 2016', 'scope': 'full match'}
+# the app's joined video of both halves (95:20); video time equals the analysis clock
+VIDEO = {'path': 'D:/CVDL Football Data/PitchProfile/data/datasets/sn-20160207-chelsea-manchester-united/'
+                 'sn-20160207-chelsea-manchester-united.mkv', 'name': 'sn-20160207-chelsea-manchester-united.mkv'}
+CLIPS = [(0, 'Kick-off'), (781, 'Open play'), (1256, 'Model-detected shot'),
+         (2700, 'Second-half kick-off'), (4001, 'Model-detected shot'), (5034, 'Late in the match')]
 CLIP_SECONDS = 75
 LENGTHS = (2, 5, 10, 15, 20, 30, 45)
 OUT = Path(__file__).with_name('data.js')
 MIN_VISIBLE_S = 120          # the app's own threshold for profiling an appearance
+MAIN_VISIBLE_S = 600         # shown by default: on screen for 10+ minutes (the app's threshold for style percentiles)
 EVENT_TYPES = ['pass', 'carry', 'shot', 'tackle', 'interception', 'recovery', 'pressure', 'take_on',
                'clearance', 'cross', 'header', 'block']
 OUTCOMES = {None: 0, 'complete': 1, 'intercepted': 2, 'unknown': 0}
@@ -74,7 +77,7 @@ def main():
             'name': f"{short_team} {label}" if label.startswith('#') else f"{short_team} {label.lower()}",
             'gk': p['role'] == 'goalkeeper',
             'position': POSITION.get(meta.get('position_group'), 'Outfield'),
-            'visible_s': r(p['visible_seconds'], 0),
+            'visible_s': r(p['visible_seconds'], 0), 'short': p['visible_seconds'] < MAIN_VISIBLE_S,
             'distance_m': r(ph['distance_m'], 0), 'top_kmh': r(ph['top_speed_kmh']), 'sprints': ph['sprints'],
             'zones_s': {k: r(v, 0) for k, v in ph['zone_seconds'].items()},
             'mean': [r(pos['mean_x']), r(pos['mean_y'])],
@@ -111,10 +114,11 @@ def main():
     rows.sort(key=lambda row: row[1])
 
     # ---- timeline: touches per team per 5-minute bucket -------------------------------------------
-    buckets = [[0, 0] for _ in range(9)]
+    n_buckets = max(1, round(man['duration_seconds'] / 300))      # the last few seconds fold into the final block
+    buckets = [[0, 0] for _ in range(n_buckets)]
     for e in events:
         if e['type'] == 'touch':
-            buckets[min(8, int(e['time_s'] // 300))][0 if e['team'] == 'A' else 1] += 1
+            buckets[min(n_buckets - 1, int(e['time_s'] // 300))][0 if e['team'] == 'A' else 1] += 1
 
     # ---- tracking clips: boxes in the video image plus pitch positions, for the overlay ---------
     ball_by_sample = {int(f): (cx, cy, x, y) for f, cx, cy, x, y in zip(ball['sample'], ball.cx, ball.cy, ball.x, ball.y)}
@@ -147,8 +151,8 @@ def main():
     length = [{'minutes': n, 'median': float(np.median(v['ge120'])), 'min': min(v['ge120']), 'max': max(v['ge120']),
                'median600': float(np.median(v['ge600'])), 'halves': len(halves)} for n, v in per_half.items()]
 
+    parts = [json.load(open(DATA / h / 'analysis.json')) for h in man['halves']]
     post = analysis.get('postprocess', {})
-    det = analysis['detection']
     team_stats = {t['team']: t for t in stats['teams']}
 
     def team(k):
@@ -168,14 +172,14 @@ def main():
         'match': {**MATCH, 'duration_s': man['duration_seconds'], 'video': VIDEO,
                   'live_s': r(stats['live_seconds'], 0), 'pitch_view': r(man['coverage']['pitch_view_share'], 3),
                   'ball_seen': r(man['coverage']['ball_observed_share'], 3), 'identities': len(info),
-                  'profiled': len(players), 'events': len(rows), 'unattributed_events': int(unattributed),
+                  'profiled': sum(not p['short'] for p in players), 'profiled_all': len(players), 'events': len(rows), 'unattributed_events': int(unattributed),
                   'attack': {'A': 'right', 'B': 'left'}},
-        'run': {'samples': det['samples'], 'hz': det['sample_hz'], 'cuts': det['shots'],
-                'detect_wall_s': r(det['wall_seconds'], 0), 'device': 'NVIDIA RTX 3090',
-                'numbers_read': post.get('jersey_numbers_read'), 'crops': analysis.get('crops', {}).get('crops'),
-                'identity_segments': post.get('appearance_attached_segments'),
-                'action_spots': sum((post.get('action_spotter', {}).get('events') or {}).values()),
-                'cpu_wall_s': r(post.get('wall_seconds'), 0)},
+        'run': {'halves': len(parts), 'samples': sum(a['detection']['samples'] for a in parts),
+                'hz': parts[0]['detection']['sample_hz'], 'cuts': sum(a['detection']['shots'] for a in parts),
+                'detect_wall_s': r(sum(a['detection']['wall_seconds'] for a in parts), 0), 'device': 'NVIDIA RTX 3090',
+                'numbers_read': sum(a['postprocess'].get('jersey_numbers_read') or 0 for a in parts),
+                'crops': sum((a.get('crops') or {}).get('crops') or 0 for a in parts),
+                'cpu_wall_s': r(sum(a['postprocess']['wall_seconds'] for a in parts), 0)},
         'teams': {'A': team('A'), 'B': team('B')},
         'players': players,
         'events': {'types': EVENT_TYPES, 'rows': rows},
