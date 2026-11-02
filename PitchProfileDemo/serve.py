@@ -5,6 +5,7 @@ drive (with Range support so the player can seek); the video is never copied int
 
     python serve.py [port]
 """
+import glob
 import json
 import os
 import re
@@ -15,6 +16,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
 VIDEO = re.search(r'"video":\{"path":(".*?")', open(os.path.join(HERE, 'data.js'), encoding='utf-8').read()).group(1)
 VIDEO = json.loads(VIDEO)
+if not os.path.exists(VIDEO):
+    # Not on Windows: look for the same path under a mounted data drive (macOS /Volumes, Linux /mnt, /media).
+    rel = VIDEO.split(':/', 1)[-1]
+    for root in ['/Volumes/*', '/mnt/*', '/media/*/*']:
+        for hit in glob.glob(os.path.join(root, rel)):
+            VIDEO = hit
+            break
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -61,7 +69,7 @@ class Handler(SimpleHTTPRequestHandler):
             pass
 
     def log_message(self, fmt, *args):
-        if '/footage' not in (args[0] if args else ''):
+        if '/footage' not in str(args[0] if args else ''):
             super().log_message(fmt, *args)
 
 
