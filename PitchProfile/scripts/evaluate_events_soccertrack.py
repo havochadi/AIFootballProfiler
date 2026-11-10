@@ -101,7 +101,8 @@ def ball_wins(bas):
 
 
 def evaluate(people, ball, directions, bas):
-    ev, sp, pos, pp, _ = ME.events(people, ball, directions, HZ)
+    # tackle_rule: the rejected tackle rule is still measured here (its row in the report).
+    ev, sp, pos, pp, _ = ME.events(people, ball, directions, HZ, tackle_rule=True)
     ev['pid'] = ev.segment.map(pp.groupby('segment').tracklet.first())
     if 'opponent' in ev:
         ev['opponent_pid'] = ev.opponent.map(pp.groupby('segment').tracklet.first())
