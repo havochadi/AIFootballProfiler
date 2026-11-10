@@ -111,3 +111,39 @@ def test_scores_from_packed_frames_are_identical_with_and_without_read_ahead(fak
         runs.append(AS.frame_scores(None, frames=enumerate(frames)))
     assert runs[0].shape == (37, 25) and np.array_equal(*runs)
     assert (np.abs(runs[0]).sum(1) > 0).all()                             # every frame is scored
+
+
+def test_half_overlap_does_about_half_the_model_work_and_still_scores_every_frame(fake_model, monkeypatch):
+    rng = np.random.default_rng(1)
+    frames = [rng.integers(0, 256, (6, 8, 3), dtype=np.uint8) for _ in range(101)]
+    work = {}
+    for step in (2, 4):                                                   # clips of 8: 3/4 and 1/2 overlap
+        monkeypatch.setattr(AS, 'CLIP_STEP', step)
+        before = fake_model.clips
+        s = AS.frame_scores(None, frames=enumerate(frames))
+        work[step] = fake_model.clips - before
+        assert s.shape == (101, 25) and (np.abs(s).sum(1) > 0).all()
+    assert work[4] / work[2] == pytest.approx(.5, abs=.05)
+
+
+def test_half_overlap_is_off_unless_the_variable_switches_it_on():
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+    code = 'from football_profiler import action_spotting as AS; print(AS.CLIP_STEP)'
+    env = {k: v for k, v in os.environ.items() if k != 'PITCHPROFILE_SPOTTER_HALF_OVERLAP'}
+    read = lambda e: subprocess.run([sys.executable, '-c', code], cwd=Path(__file__).resolve().parents[1], env=e,
+                                    capture_output=True, text=True, check=True).stdout.strip()
+    assert read(env) == '25'
+    assert read({**env, 'PITCHPROFILE_SPOTTER_HALF_OVERLAP': '1'}) == '50'
+
+
+def test_spotted_file_records_the_clip_step(monkeypatch):
+    from pathlib import Path
+    from football_profiler import vision
+    monkeypatch.setattr(vision, 'video_info', lambda path: {'fps': 25.0})
+    monkeypatch.setattr(AS, 'frame_scores', lambda *a, **k: np.zeros((10, 25), np.float32))
+    monkeypatch.setattr(AS, 'checkpoint_path', lambda: Path('w/tdeed_team_bas_ft/checkpoint_best.pt'))
+    monkeypatch.setattr(AS, 'CLIP_STEP', 50)
+    assert AS.spot_video('match.mkv')['clip_step'] == 50

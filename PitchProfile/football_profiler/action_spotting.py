@@ -37,7 +37,11 @@ CHECKPOINT = 'tdeed_team_bas_ft/checkpoint_best.pt'
 CHECKPOINT_SHA256 = '7d228ba697668ccdac711d8d2b52ac4d62a75f08e953e01231973e4ac1b31944'
 WIDTH, HEIGHT = 796, 448
 CLIP_LEN = 100
-CLIP_STEP = 25                 # the devkit's evaluation overlap (three quarters of a clip)
+# Clips overlap by three quarters (CLIP_STEP 25), the devkit's evaluation setting: each frame is
+# scored four times and the scores averaged. PITCHPROFILE_SPOTTER_HALF_OVERLAP=1 steps 50 frames
+# instead (half overlap, two scores per frame), about half the model's work. Off until measured on
+# the held-out games (scripts/check_spotter_changes.py).
+CLIP_STEP = 50 if os.environ.get('PITCHPROFILE_SPOTTER_HALF_OVERLAP') == '1' else 25
 FRAME_STRIDE = 2               # 25 fps source -> 12.5 frames/s, the stride the model was trained with
 NMS_WINDOW = 12                # frames (about 1 s), the devkit's soft-NMS window for ball actions
 KEEP_SCORE = .05               # spots stored and counted (score-weighted) in statistics
@@ -311,7 +315,7 @@ def spot_video(video_path, progress=lambda *a: None, max_frames=None):
                      + (', fine-tuned on BAS + FOOTPASS' if tuned else ', published baseline'),
             'checkpoint': checkpoint_path().parent.name + '/' + checkpoint_path().name, 'devkit_commit': DEVKIT_COMMIT,
             'frames_per_second': fps, 'frames': int(len(scores)), 'score_threshold_stored': KEEP_SCORE,
-            'spots': peaks(scores, fps)}
+            'clip_step': CLIP_STEP, 'spots': peaks(scores, fps)}
 
 
 # Actions credited to a player of the spotted team, and the statistic they count toward.
