@@ -16,6 +16,11 @@ centred on rare actions. The unused SoccerNet-v2 joint-training head is left unt
 Checkpoints: <weights>/tdeed_team_bas_ft/checkpoint_best.pt (lowest held-out class loss on
 FOOTPASS validation clips) and checkpoint_last.pt; log: evidence/action_spotter_finetune.json.
 
+Ablation: --hard-labels trains on FOOTPASS with plain exact labels instead of the partial-label sets
+(spotter_data.FOOTPASS_HARD), everything else unchanged, to measure what the partial-label loss adds.
+It needs its own --out-dir; the held-out clips that pick its best checkpoint stay the same.
+scripts/run_loss_ablation.py runs both arms and scores them.
+
 Usage (from PitchProfile/):
   .\\.venv\\Scripts\\python.exe scripts\\finetune_action_spotter.py [--steps 8000] [--batch 4]
 """
@@ -50,7 +55,7 @@ class Clips:
         self.rng = random.Random(seed)
         rare_bits = SD.mask(rare or RARE)
         # Indexed by position: worker processes receive copies of the videos.
-        self.rare = [[[e['frame'] for e in v.events if SD.allowed(e, v.dataset) & rare_bits] for v in vs]
+        self.rare = [[[e['frame'] for e in v.events if SD.allowed(e, v.dataset, v.hard) & rare_bits] for v in vs]
                      for _, vs in groups]
 
     def sample(self):
@@ -201,12 +206,17 @@ def main():
                    'goes elsewhere so it never replaces the adopted fine-tune)')
     p.add_argument('--start', choices=['published', 'finetuned'], default='published',
                    help='start from the published checkpoint or from the adopted fine-tune')
+    p.add_argument('--hard-labels', action='store_true',
+                   help='ablation: exact FOOTPASS labels and plain cross-entropy instead of the partial-label loss')
     args = p.parse_args()
+    if args.hard_labels and args.out_dir == OUT_DIR:
+        raise SystemExit('--hard-labels is an ablation: give it its own --out-dir so it never replaces the adopted '
+                         'fine-tune')
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
     bas = SD.videos('bas', 'train') + SD.videos('bas', 'valid')
-    footpass = SD.videos('footpass', 'train')
+    footpass = SD.videos('footpass', 'train', hard=args.hard_labels)
     held_out = SD.videos('footpass', 'val')
     if not bas or not footpass or not held_out:
         raise SystemExit(f'Packed videos missing (BAS train+valid {len(bas)}, FOOTPASS train {len(footpass)}, '
@@ -294,7 +304,7 @@ def main():
                 torch.save(net.state_dict(), out_dir / 'checkpoint_best.pt')
             torch.save(net.state_dict(), out_dir / 'checkpoint_last.pt')
             # Games packed since the start (pack_spotter_frames.py still running) join the training set.
-            latest = SD.videos('footpass', 'train')
+            latest = SD.videos('footpass', 'train', hard=args.hard_labels)
             if len(latest) > len(footpass) and step < args.steps:
                 footpass = latest
                 del it, loader

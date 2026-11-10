@@ -39,6 +39,11 @@ FOOTPASS_ALLOWED = {
     'Block': ['BALL PLAYER BLOCK'],
 }
 FOOTPASS_UNANNOTATED = ['OUT', 'GOAL']
+# Ablation of the partial-label loss (finetune_action_spotter.py --hard-labels): every FOOTPASS class
+# becomes its single nearest spotter class and unlabelled frames become background only, which is
+# what plain cross-entropy needs. The partial labels avoid both guesses.
+FOOTPASS_HARD = {'Drive': 'DRIVE', 'Pass': 'PASS', 'Cross': 'CROSS', 'Shot': 'SHOT', 'Header': 'HEADER',
+                 'Throw-in': 'THROW IN', 'Tackle': 'PLAYER SUCCESSFUL TACKLE', 'Block': 'BALL PLAYER BLOCK'}
 FOOTPASS_LTR_IS_LEFT = False           # left_to_right == 0 is the team defending the left goal
 # The spotter classes each FOOTPASS class is measured against.
 FOOTPASS_MEASURED = {'Drive': ['DRIVE'], 'Pass': ['PASS', 'HIGH PASS'], 'Cross': ['CROSS'], 'Shot': ['SHOT'],
@@ -57,10 +62,15 @@ def mask(names):
     return m
 
 
-def allowed(event, dataset):
-    """Bit mask of spotter classes (bit 0 = background) this labelled event may be."""
+def allowed(event, dataset, hard=False):
+    """Bit mask of spotter classes (bit 0 = background) this labelled event may be.
+
+    hard=True gives a FOOTPASS event exactly one class (FOOTPASS_HARD), for the ablation.
+    """
     if dataset == 'bas':
         return mask([event['label']])
+    if hard:
+        return mask([FOOTPASS_HARD[event['label']]])
     return mask(FOOTPASS_ALLOWED[event['label']])
 
 
@@ -72,18 +82,20 @@ def side(event, dataset):
     return 'left' if bool(event['left_to_right']) == FOOTPASS_LTR_IS_LEFT else 'right'
 
 
-def targets(events, n, dataset, radius=RADIUS):
+def targets(events, n, dataset, radius=RADIUS, hard=False):
     """Per-frame targets: allowed-class bit mask, displacement to the event, team (-1 none, 0 left, 1 right).
 
     As in the devkit, frames within `radius` of an event carry its label and their offset from it;
-    where windows overlap the later event wins.
+    where windows overlap the later event wins. hard=True (the ablation) gives FOOTPASS frames exact
+    labels: one class per event, background alone where nothing is labelled.
     """
-    background = mask(['background'] + (FOOTPASS_UNANNOTATED if dataset == 'footpass' else []))
+    unannotated = FOOTPASS_UNANNOTATED if dataset == 'footpass' and not hard else []
+    background = mask(['background'] + unannotated)
     allow = np.full(n, background, np.int32)
     displ = np.zeros(n, np.float32)
     team = np.full(n, -1, np.int8)
     for e in sorted(events, key=lambda e: e['frame']):
-        a, s = allowed(e, dataset), side(e, dataset)
+        a, s = allowed(e, dataset, hard), side(e, dataset)
         for i in range(max(0, e['frame'] - radius), min(n, e['frame'] + radius + 1)):
             allow[i] = a
             displ[i] = i - e['frame']
@@ -114,9 +126,12 @@ def partial_label_loss(logits, allow_bits, weights):
 
 
 class PackedVideo:
-    """One packed video: JPEG frames at 12.5/s with an offset index, its labels and targets."""
+    """One packed video: JPEG frames at 12.5/s with an offset index, its labels and targets.
 
-    def __init__(self, folder: Path):
+    hard=True builds exact-label targets (see targets()); it changes nothing for BAS videos.
+    """
+
+    def __init__(self, folder: Path, hard=False):
         self.folder = Path(folder)
         self.meta = json.loads((self.folder / 'meta.json').read_text(encoding='utf-8'))
         self.dataset = self.meta['dataset']
@@ -124,7 +139,8 @@ class PackedVideo:
         self.n = int(self.meta['frames'])
         self.index = np.load(self.folder / 'index.npy')
         self.events = json.loads((self.folder / 'labels.json').read_text(encoding='utf-8'))
-        self.allow, self.displ, self.team = targets(self.events, self.n, self.dataset)
+        self.hard = bool(hard)
+        self.allow, self.displ, self.team = targets(self.events, self.n, self.dataset, hard=self.hard)
 
     def frames(self, start, length, pool=None):
         """RGB uint8 frames (length x 448 x 796 x 3); frames past either end are black.
@@ -175,6 +191,6 @@ class PackedVideo:
         return allow, displ, team
 
 
-def videos(dataset, split):
+def videos(dataset, split, hard=False):
     base = root() / dataset / split
-    return [PackedVideo(p.parent) for p in sorted(base.glob('*/meta.json'))]
+    return [PackedVideo(p.parent, hard) for p in sorted(base.glob('*/meta.json'))]
