@@ -275,6 +275,8 @@ AERIAL = ('HEADER', 'THROW IN')
 IMAGE_PAD_X = .5                  # of the box width, either side
 IMAGE_ABOVE = {True: .6, False: .1}   # of the box height above its top (aerial / on the ground)
 IMAGE_BELOW = .15
+# Why a spot was left without a player ('uncredited'), in the order they are checked.
+UNCREDITED = ('no team', 'team not on screen', 'no ball', 'ball away from players')
 
 
 def _image_pick(players, cx, cy, aerial):
@@ -297,10 +299,10 @@ def attribute(spots, people, ball, directions, sample_hz, threshold=KEEP_SCORE):
     'left' is the team defending the left goal. The player is the one of that team whose picture
     box holds the ball's picture position within ATTRIBUTE_WINDOW samples of the spot (head or
     feet nearest, see _image_pick), otherwise the one nearest the ball on the pitch within
-    ATTRIBUTE_RADIUS_M; with neither the spot stays team-level (segment None). Each event keeps its
-    score; 'confident' marks scores above the class threshold (thresholds()). Statistics add up
-    scores (expected counts): on this footage the spotter's scores behaved as probabilities
-    (summed throw-in scores 166 against 171 labelled throw-ins).
+    ATTRIBUTE_RADIUS_M; with neither the spot stays team-level (segment None) and 'uncredited' says
+    why (UNCREDITED). Each event keeps its score; 'confident' marks scores above the class threshold
+    (thresholds()). Statistics add up scores (expected counts): on this footage the spotter's scores
+    behaved as probabilities (summed throw-in scores 166 against 171 labelled throw-ins).
     """
     confident = thresholds()
     import pandas as pd
@@ -326,13 +328,17 @@ def attribute(spots, people, ball, directions, sample_hz, threshold=KEEP_SCORE):
         sample = int(round(s['time_s'] * sample_hz))
         aerial = s['label'] in AERIAL
         best, picked, how = (np.inf, None, None), (np.inf, None), None
-        for k in range(sample - ATTRIBUTE_WINDOW, sample + ATTRIBUTE_WINDOW + 1):
+        on_screen = ball_near = False
+        window = range(sample - ATTRIBUTE_WINDOW, sample + ATTRIBUTE_WINDOW + 1)
+        for k in window:
+            ball_near = ball_near or k in seen.index or k in b.index
             g = by_sample.get(k)
             if g is None or team is None:
                 continue
             mine = g[g.team == team]
             if mine.empty:
                 continue
+            on_screen = True
             if k in seen.index:
                 r = seen.loc[k]
                 r = r.iloc[0] if isinstance(r, pd.DataFrame) else r
@@ -358,6 +364,16 @@ def attribute(spots, people, ball, directions, sample_hz, threshold=KEEP_SCORE):
             how = 'pitch'
         else:
             player = None
+        if player is not None:
+            why = None
+        elif team is None:
+            why = 'no team'                          # the spotter's side could not be mapped to a team
+        elif not on_screen:
+            why = 'team not on screen'
+        elif not ball_near:
+            why = 'no ball'
+        else:
+            why = 'ball away from players'           # ball seen, but in no box of that team and over 3 m away
         x = float(row.x) if row is not None else (float(player.x) if player is not None and np.isfinite(player.x) else None)
         y = float(row.y) if row is not None else (float(player.y) if player is not None and np.isfinite(player.y) else None)
         out.append({'type': PLAYER_ACTIONS[s['label']], 'source': 'action_spotter', 'label': s['label'],
@@ -365,7 +381,7 @@ def attribute(spots, people, ball, directions, sample_hz, threshold=KEEP_SCORE):
                     'team': team, 'time_s': float(s['time_s']),
                     'segment': player.segment if player is not None else None,
                     'view_shot': int(player.view_shot) if player is not None else None,
-                    'credited_by': how, 'x': x, 'y': y,
+                    'credited_by': how, 'uncredited': why, 'x': x, 'y': y,
                     'ball_distance_m': dist if np.isfinite(dist) else None,
                     'attack_sign': attack_sign(team, directions) if team else 0})
     return out
