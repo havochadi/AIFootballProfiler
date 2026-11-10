@@ -2,15 +2,30 @@
 
 Owner: Hasif. This branch (`dev-hasif`) holds only the Group D files. The full project is on `main`.
 
-**Status on 10 Nov:** 3 of the 4 improvements are coded, tested and pushed. Two runs are waiting on Hadi's PC, and the crediting fix is next. After that comes a final commit. Hadi then copies the commits into `main` and tests everything, and Group D is finished. The full list is in section 6.
+**Where we are (10 Nov).** All four fixes are coded, tested and pushed. What is left is three runs on Hadi's PC to get the numbers, then Hadi merges the code into `main`, and Group D is done. A practice merge onto `main` has already been run: it applies cleanly and all tests still pass (section 6).
+
+## 0. Words you need
+
+| Word | Meaning |
+|---|---|
+| Event | Something that happened with the ball: pass, carry, shot, tackle, header, throw-in |
+| Spotter | The video model (T-DEED). It watches the match and marks the moment each action happens. One mark is a "spot". |
+| Crediting | Deciding *which player* did a spotted action |
+| Track | One player's path through the video. "Right track" = the right player, even if we don't know his name. |
+| Precision / recall | Precision: of what we said happened, how much was right. Recall: of what really happened, how much we found. |
+| AP / mAP | One score from 0 to 1 for how well the spotter finds an action type (1 = perfect). mAP = the average over all action types. |
+| Held-out games | Games the model never trained on. Used only for testing, so the score is fair. |
+| Partial-label loss | Our training trick. A FOOTPASS "Pass" could be a pass, a high pass or a free kick. Instead of forcing one guess, we tell the model "any of these is fine". |
+| Ablation | Training once with the trick and once without it, to prove the trick itself helped. |
+| Cherry-pick | Copying one commit from this branch onto `main` |
 
 ## 1. What Group D does
 
-Group D turns tracked players and the ball into match events, such as passes, carries, shots and tackles, and says which player did each one. Danish's stats (Group E) then count those events per player.
+Group D answers "what happened, and who did it". It takes the players and ball found by Groups A and B, and turns them into events with a player's name on each. Danish (Group E) then counts the events into each player's stats.
 
-There are two parts.
+There are two parts that work together.
 
-**Event rules** (`match_events.py`). Hand-written rules that run on the player and ball positions. They work out who had the ball and when. The event comes from where the ball went next:
+**Event rules** (`match_events.py`) are rules we wrote by hand. They look at where the players and ball are, work out who had the ball, and read the event from where the ball goes next:
 
 | What happens | Event |
 |---|---|
@@ -18,9 +33,9 @@ There are two parts.
 | next touch is by an opponent | intercepted pass or clearance, then a recovery |
 | one player moves the ball 2 m or more | carry |
 
-**T-DEED action spotter** (`action_spotting.py`). A trained video model. It watches the broadcast in 8-second clips and marks the moment of actions that positions alone cannot show: shots, tackles, blocks, headers, crosses and throw-ins. Each spotted action is then credited to a player.
+**The spotter** (`action_spotting.py`) is the trained video model. It catches what positions alone can't show: shots, tackles, blocks, headers, crosses and throw-ins. Each spot is then credited to a player.
 
-**Fine-tuning** (`spotter_data.py`, `scripts/finetune_action_spotter.py`). Training starts from the published SoccerNet T-DEED model and continues on SoccerNet BAS and FOOTPASS games. FOOTPASS labels are rougher than the model's 12 classes. A FOOTPASS "Pass" could be a pass, a high pass or a free kick. The partial-label loss tells the model "it is one of these" instead of forcing a guess.
+**Training** (`spotter_data.py`, `scripts/finetune_action_spotter.py`). We started from the public SoccerNet model and trained it further on SoccerNet BAS and FOOTPASS games, using the partial-label loss for FOOTPASS's vague labels.
 
 ## 2. The whole pipeline, start to finish
 
@@ -28,242 +43,279 @@ Yellow boxes are Group D. "Fix 1" to "Fix 4" point to section 4.
 
 ```mermaid
 flowchart TD
-    V["Match video"] --> A["A. Detection (Hadi)<br>players and ball in every sampled frame, 12.5 per second"]
+    V["Match video"] --> A["A. Detection (Hadi)<br>players and ball in every frame, 12.5 per second"]
     A --> B["B. Pitch mapping (Fazil)<br>picture pixels to metres on the pitch"]
-    B --> T["Teams, roles, attack direction, ball path"]
-    T --> R["D. Event rules<br>match_events.py<br>who had the ball, passes, carries, recoveries<br>Fix 1"]
-    V --> S["D. T-DEED action spotter<br>action_spotting.py<br>8-second clips<br>Fix 2"]
-    W["D. Fine-tuning<br>spotter_data.py, finetune_action_spotter.py<br>Fix 3"] -. trained weights .-> S
-    S --> J["action_spots.json<br>time, action, team side, score"]
-    J --> K["D. Crediting<br>attribute(): which player did it<br>Fix 4"]
-    R --> M["D. Merge<br>merge_spotted(): spotter tackles and shots replace the rules';<br>headers, blocks, crosses, throw-ins added;<br>passes the rules missed filled in"]
+    B --> T["Teams, attack direction, ball path"]
+    T --> R["D. Event rules<br>match_events.py<br>who had the ball: passes, carries, recoveries<br>Fix 1, Fix 2"]
+    V --> S["D. Spotter (T-DEED)<br>action_spotting.py<br>8-second clips<br>Fix 2"]
+    W["D. Training<br>partial-label loss<br>Fix 3"] -. trained model .-> S
+    S --> J["Spots: time, action, team, score"]
+    J --> K["D. Crediting<br>which player did it<br>Fix 4"]
+    R --> M["D. Merge<br>spotter's shots and tackles replace the rules';<br>headers, blocks, crosses, throw-ins added;<br>passes the rules missed filled in"]
     K --> M
-    M --> C["C. Identity (Aamir)<br>joins track pieces into named players"]
-    C --> E["E. Stats (Danish)<br>match_stats.py, counts per player"]
+    M --> C["C. Identity (Aamir)<br>puts names on the players"]
+    C --> E["E. Stats (Danish)<br>counts per player"]
     E --> APP["App: player pages, heatmaps, profiles"]
 
     classDef groupD fill:#ffe08a,stroke:#b8860b,color:#000
     class R,S,W,K,M groupD
 ```
 
-In the code (`match_pipeline.analyse`), the order is:
+In the code (`match_pipeline.analyse`), the steps run in this order:
+1. Detection on the video.
+2. Spotter on the same video.
+3. Pitch mapping and teams.
+4. Event rules.
+5. Crediting and merge.
+6. Identity.
+7. Stats.
+8. Saved for the app.
 
-| Order | Step | Where |
-|---|---|---|
-| 1 | Detection pass over the video | `match_analysis.detection_pass` |
-| 2 | Spotter over the same video; writes `action_spots.json` | `match_pipeline.spot_actions` |
-| 3 | Pitch mapping, teams, ball path | `match_pipeline.stages` |
-| 4 | Event rules | `match_events.events` |
-| 5 | Credit the spotted actions, then merge them with the rule events | `action_spotting.attribute`, `match_pipeline.merge_spotted` |
-| 6 | Identity | `match_identity` |
-| 7 | Stats, then the dataset the app reads | `match_stats.build`, `write_dataset` |
+## 3. The four fixes at a glance
 
-## 3. Before vs after at a glance
+| Fix | In one line | Before | After | Status |
+|---|---|---|---|---|
+| 1 | Stop bad tackles leaking into stats | If the spotter didn't run, a tackle rule that is only 6–14% right still fed the stats | That rule never feeds the app | Done |
+| 2 | Tidy-ups | One function written twice; one function nobody used | Both cleaned up; nothing behaves differently | Done |
+| 3 | Prove the training trick works | We had no proof the partial-label loss itself helped | One command trains with and without it and compares | Code done; Hadi's overnight run |
+| 4 | Crediting the right player | 1 in 4 spotted passes and carries gets no player, with no record of why; throw-ins credited worst (6.2%) | Every uncredited action says why; a new throw-in rule is ready | Code done; Hadi's two short runs |
 
-| Fix | Improvement | Before | After | Checked by | Status |
-|---|---|---|---|---|---|
-| 1 | Tackle rule leak | If the spotter did not run, the rules made tackles that were only 6–14% right, and they went into the stats | The rules no longer make tackles in the app | new test | Done, `f50f8ec` |
-| 2 | Duplicate `available()` | Two copies; the second silently replaced the first | One copy, the one Python already used | new test | Done, `24b34ab` |
-| 3 | Prove the partial-label loss | No evidence that the loss itself helped, only that the fine-tune did | One command trains it both ways and compares | tests and a dry run now; real numbers from Hadi's run | Code done, run waiting |
-| 4 | Crediting the right player | Right player for only 34% of passes; about 1 in 4 spotted events get no player | Look wider in time, fall back to the player on the ball, fix the throw-in team | tests, plus before/after on Hadi's PC | Next |
+## 4. Each fix in detail
 
-## 4. Each improvement in detail
+### Fix 1. Bad tackles leaking into the stats (done)
 
-### Fix 1. Tackle rule leak (done, `f50f8ec`)
+**The problem.** The rules used to call a quick, close change of possession a "tackle": the ball changes team within 0.6 s with the players within 2.2 m. Checked against real labels, that was right only 6–14% of the time, so the team switched tackles over to the spotter. But the switch-over only happened when the spotter ran. If it didn't (no GPU, model missing, crash), the bad rule tackles went straight into the stats.
 
-**The problem.** The rules saw a close, quick change of possession and called it a tackle: the ball changes team within 0.6 s and the two players are within 2.2 m. They also marked the other player as dispossessed. Against SoccerTrack ground truth, this was right only 6–14% of the time, so the team moved tackles over to the spotter.
-
-The swap happened in `merge_spotted`, but that only runs when `action_spots.json` exists. With no spotter output, the bad tackles went straight into the stats. That happens when there is no GPU, the model is missing, or the spotter crashed.
+Think of a smoke alarm that went off wrongly 9 times out of 10. We fitted a better one, but the old one was still wired in as a backup.
 
 ```mermaid
 flowchart LR
     X["Close, quick change of possession"] --> Q{"Did the spotter run?"}
-    Q -- yes --> Y["Spotter's tackles used<br>(rule tackles removed in merge_spotted)"]
-    Q -- "no (before)" --> N1["Rule tackle sent to the stats<br>only 6–14% right"]
-    Q -- "no (after)" --> N2["No tackle made<br>treated as a duel, then a recovery"]
+    Q -- yes --> Y["Spotter's tackles used"]
+    Q -- "no (before)" --> N1["Rule tackle into the stats<br>only 6–14% right"]
+    Q -- "no (after)" --> N2["No tackle; just a recovery"]
 ```
 
 | | Before | After |
 |---|---|---|
-| `match_events.events()` | always added `tackle` and `dispossessed` | only adds them when called with `tackle_rule=True` |
-| default | none | `TACKLE_RULE = False` at the top of `match_events.py` |
-| `evaluate_events_soccertrack.py` | measured the rule | still measures it (passes `tackle_rule=True`), so the 6–14% row in the evaluation still comes out |
-| App with the spotter | spotter tackles | no change |
-| App without the spotter | wrong rule tackles in the stats | no tackles |
+| Rule tackles in the app | yes, whenever the spotter didn't run | never (`TACKLE_RULE = False`) |
+| Measuring the rule | `evaluate_events_soccertrack.py` | still works; it switches the rule on just for the measurement |
+| App when the spotter ran | spotter tackles | no change |
 
-**Validation.** A new test in `tests/test_match_events.py` has player B1 take the ball off A1. By default, no tackle is made and it is not counted as a pass, only as B1's recovery. With `tackle_rule=True`, the tackle and the dispossession are still found.
+**Tested by** a new test in `tests/test_match_events.py`. Player B1 takes the ball off A1: no tackle by default, and it doesn't count as a pass either. With the rule switched on, the tackle is still found.
 
-### Fix 2. Duplicate `available()` (done, `24b34ab`)
+### Fix 2. Tidy-ups (done)
 
-| | Before | After |
-|---|---|---|
-| `action_spotting.available()` | defined twice; Python keeps only the second. The first checked that the devkit folder exists, the second that the devkit's `model/model.py` exists | one copy, the one Python was already using |
-| Effect on outputs | n/a | none |
+| | Before | After | Why it matters |
+|---|---|---|---|
+| `available()` in `action_spotting.py` | written twice; Python silently used only the second | one copy, the one that was in use | Looks like a bug in a code review, and a likely Q&A question |
+| `contacts()` in `match_events.py` | 46 lines nobody called, with a comment saying it credits spotted actions (not true) | removed; its one useful note kept: classifying tackles from ball contacts was tried and rejected | Dead code with a wrong comment confuses anyone reading it |
 
-**Why.** It looks like a bug when you read the file, and it is a likely Q&A question.
+Nothing behaves differently. **Tested by** a new test that checks `available()` in three cases, and by all tests still passing after the removal.
 
-**Validation.** A new test in `tests/test_spot_actions.py` covers three cases:
-- No devkit gives False.
-- A devkit folder without its model code gives False.
-- A checkpoint plus the model code gives True.
+### Fix 3. Proving the training trick works (code done, needs Hadi's overnight run)
 
-### Fix 3. Proving the partial-label loss (code done in `8da14ad` and `e62fa33`; run waiting)
+**Why it matters.** The "Model Development: Excellent" row of the rubric needs a new training strategy, and the partial-label loss is ours. Fine-tuning raised FOOTPASS mAP from 0.478 to 0.604. But that gain could come just from the extra games, not from the trick. The only way to know is to train again *without* the trick and compare.
 
-**Why.** This loss is Group D's "novel training strategy" for the Model Development row of the rubric. The fine-tune raised FOOTPASS mAP from 0.478 to 0.604, but that could come from the extra training data alone. Only a run with the loss switched off shows what the loss adds.
+**What the switch changes.** It changes only how FOOTPASS labels are taught:
 
-**What the switch changes.** It changes only how FOOTPASS labels are taught. BAS labels are the same in both.
-
-| FOOTPASS label | Partial labels (ours, default) | Normal labels (`--hard-labels`) |
+| FOOTPASS label | With the trick (ours) | Without (`--hard-labels`) |
 |---|---|---|
 | Pass | PASS, HIGH PASS or FREE KICK | PASS |
 | Cross | CROSS or FREE KICK | CROSS |
 | Shot | SHOT or FREE KICK | SHOT |
 | Header | HEADER or SHOT | HEADER |
-| Drive, Throw-in, Tackle, Block | one class each | the same one class |
-| Frame with no label | background, OUT or GOAL | background only |
+| Frame with no label | nothing, OUT or GOAL | nothing |
 
-| | Before | After |
+`scripts/run_loss_ablation.py` trains both versions with the exact settings of our real model, scores both on held-out games, and writes one table to `evidence/loss_ablation.json`. Both versions are trained fresh, so the only difference between them is the trick. It can never overwrite our real model.
+
+**Result table (filled in after Hadi's run):**
+
+| Model | FOOTPASS mAP | BAS mAP |
 |---|---|---|
-| `finetune_action_spotter.py` | partial labels only | `--hard-labels` trains with normal labels; it refuses to run without its own `--out-dir`, so it can never overwrite the adopted model |
-| Running the comparison | by hand | `scripts/run_loss_ablation.py` trains both versions with the adopted run's settings (read from `evidence/action_spotter_finetune.json`), scores both on FOOTPASS val and BAS test, and writes `evidence/loss_ablation.json` |
+| Public model, no training | 0.478 | 0.606 |
+| Our model (with the trick) | 0.604 | 0.628 |
+| Retrained with the trick | waiting | waiting |
+| Retrained without the trick | waiting | waiting |
 
-The partial version is trained again as well, rather than reusing the adopted model. That way both versions run under exactly the same conditions, and the only difference is the loss.
+**How to read it.** Compare the two "retrained" rows:
+- With the trick ahead by a few hundredths on both sets: the trick works, and that is the claim for the slides.
+- Under about 0.01 apart: too close to call with one run each. We say the gain came mostly from the extra data.
 
-**Results (to fill in after Hadi's run):**
+**Tested by** checks on the label masks in both modes, checks on the commands the runner builds, and a dry run on the Mac.
 
-| Model | FOOTPASS val mAP | BAS test mAP |
-|---|---|---|
-| Published, no fine-tune | 0.478 | 0.606 |
-| Adopted fine-tune (partial labels) | 0.604 | 0.628 |
-| Rerun, partial labels | waiting | waiting |
-| Rerun, normal labels | waiting | waiting |
+### Fix 4. Crediting the right player (code done, needs Hadi's two short runs)
 
-**How to read it.** Compare the two reruns:
-- If partial labels are clearly higher, the loss works, and that is the claim for the slides.
-- If the two are about equal, the gain came from the data, and we say that honestly.
+**The problem.** The spotter finds most actions, but picking the player is weak:
 
-**Validation now.** `tests/test_spotter_data.py` checks the label masks in both modes. `tests/test_loss_ablation.py` checks the commands the runner builds. The dry run was checked on the Mac. The real run takes about 7–8 hours on Hadi's 3090.
-
-### Fix 4. Crediting the right player (next)
-
-**Measured now** (`evaluate_identity_footpass.py`, table 12):
-
-| Action | Spotter found it | Credited to the right player |
+| Action | Found | Right named player |
 |---|---|---|
 | Pass | 90% | 34% |
 | Shot | 52% | 17.9% |
 | Header | 64% | 9.3% |
 | Throw-in | 68% | 6.2% |
 
-The spotter finds most actions. The weak part is picking the player.
+Even with perfect names, only 59% of passes land on the right player, and about 1 in 4 spotted passes and carries get no player at all.
 
-**How `attribute()` works now:**
-1. Take the spotted team from the spotter's side output.
-2. Look only 2 samples either side of the spot, which is about ±0.16 s at 12.5 per second.
-3. If the ball is seen, credit the player of that team whose picture box holds the ball.
-4. Otherwise, credit the nearest player of that team within 3 m on the pitch.
-5. Otherwise, credit nobody; the event stays team-only.
+**What we planned, and why we changed it.** The plan was to look wider in time and fall back on the player in possession. Hadi had already tested exactly that in September (`DETECTION_RESEARCH.md`, "What limits it now"):
+- A wider time window, looser boxes and the possession fallback each gained only 1–3 points, and lost about as much precision.
+- His conclusion: better ball detection is what would fix it.
 
-The ball is small, blurred, in the air or hidden a lot of the time, so it is often not seen in that 0.3 s. That is the main reason about 1 in 4 spotted events get no player. Throw-ins also take their team from the spotter's own side output, which is weak.
+Doing it again would only repeat his result, so fix 4 does two new things instead.
 
-**Planned change:**
+**4a. Every uncredited action now says why.** Before, an uncredited action just had no player. Now it carries one of four reasons:
+
+| Reason | Meaning | Share of the uncredited passes and carries (Hadi, Sept) |
+|---|---|---|
+| `no ball` | ball not found near that moment | 38% |
+| `ball away from players` | ball found, but not on any player of that team | 36% |
+| `team not on screen` | no player of that team visible | 22% |
+| `no team` | the match's attack direction is unknown, so "left team" can't be matched to a team | rest |
+
+`scripts/credit_reasons.py` adds these up for every action type over all analysed halves, without a GPU. That turns "crediting is weak" into exact numbers per action, which is what the Q&A will ask about.
+
+**4b. A new rule for throw-ins.** At a throw-in the ball is held above the thrower's head. Its spot on the pitch therefore lands metres away from him, and on the far side it lands outside the pitch and gets thrown out. So crediting by the ball fails, which is why throw-ins are the worst-credited action at 6.2%. But the thrower himself is easy to find: by the rules of the game, he stands on or behind the touchline.
 
 ```mermaid
 flowchart TD
-    P["Spotted action"] --> Q1{"Ball seen within ±0.16 s?"}
-    Q1 -- yes --> OK["Player at the ball (no change)"]
-    Q1 -- "no (before)" --> NO["No player, team only"]
-    Q1 -- "no (after)" --> Q2{"Ball seen within a wider window, about ±1 s?"}
-    Q2 -- yes --> OK2["Player at the ball then"]
-    Q2 -- no --> Q3{"Player in possession at that time?<br>(possession spells from the event rules)"}
-    Q3 -- yes --> OK3["That player"]
-    Q3 -- no --> NO2["Team only"]
+    P["Spotted action, with its team"] --> Q1{"Ball on a player of that team?<br>(in his picture box, or within 3 m)"}
+    Q1 -- yes --> OK["Credit him (as before)"]
+    Q1 -- no --> Q2{"Throw-in, with the rule on?"}
+    Q2 -- yes --> Q3{"Exactly one player of that team<br>on the touchline?"}
+    Q3 -- yes --> OK2["Credit him (new)"]
+    Q3 -- no --> NO["Team only, with the reason (new)"]
+    Q2 -- no --> NO
 ```
 
-| | Before | After (planned) |
+| | Before | After |
 |---|---|---|
-| Ball not seen near the spot | no player | wider window, then the player in possession |
-| Throw-in team | spotter's side output | the team that did not touch the ball last before it went out |
-| `contacts()` in `match_events.py` | unused | reused for the fallback, or deleted |
+| Throw-in with no ball found | team only | the one player of that team standing within 1.5 m inside or 3 m behind a touchline |
+| Two of that team near a touchline | team only | still team only, because we only credit when it's certain |
+| Throw-in already credited from the ball | that player | no change; the rule only fills gaps |
+| Other actions | no change | no change |
 
-**Validation plan.** Each new rule gets a unit test on the Mac. Hadi then runs `evaluate_identity_footpass.py` before and after; it needs no GPU. That gives a before/after version of the table above for the slides.
+The rule is **switched off until Hadi measures it**. That is how the team adopted every other change: measure first, then switch on.
 
-To build this, either Hadi shares the analysed output folders (no videos), or I write him a short script to run.
+**Tested by** 8 new tests in `tests/test_spot_credit.py`; there were no crediting tests before:
+- crediting by picture and by pitch;
+- each of the four reasons;
+- the throw-in rule: on and off, the one-player check, not overriding a ball credit, and off by default;
+- the counting in `credit_reasons.py`.
 
-### Not ours: the Dispossessed count (Danish)
+**Results (filled in after Hadi's runs):**
 
-`match_stats.py` (lines 198 and 206) counts Dispossessed only from events with `source = rules`. When the spotter runs, `merge_spotted` replaces those with spotter events, so Dispossessed shows 0. Danish needs to fix this in Group E.
-
-## 5. Validation we have
-
-| What | How | Result |
+| | Rule off (now) | Rule on |
 |---|---|---|
-| Group D unit tests | pytest on the Mac (command below) | 20 passed, 1 skipped (needs a GPU) |
-| Spotter, FOOTPASS held-out games | mAP | 0.478 → 0.604 |
-| Spotter, BAS test games | mAP | 0.606 → 0.628 |
-| Spotter, passes and carries | AP | about 0.9 |
-| Spotter, tackles | AP | 0.06–0.10 (weak) |
-| Shots on held-out games | precision / recall | 0.68 / 0.74 |
-| Event rules on SoccerTrack (true positions), passes | precision / recall | 0.69 / 0.70 |
-| Passes per player against ground truth | correlation | r = 0.89 |
-| Rule tackles on SoccerTrack | precision | 6–14% (the reason for fix 1) |
-| Crediting | right player | pass 34%, shot 17.9%, header 9.3%, throw-in 6.2% |
+| Throw-ins credited to a player | waiting | waiting |
+| Throw-ins credited to the right player | waiting | waiting |
 
-Still to come: the loss comparison (fix 3) and crediting before/after (fix 4).
+Switch the rule on if "right player" goes up and the share right when credited does not drop.
 
-## 6. Steps to finish
+### Not ours: Dispossessed always shows 0 (Danish)
+
+`match_stats.py` lines 198 and 206 count Dispossessed only from the rules. The rules stopped making those events with fix 1, and the spotter's own Dispossessed events were never counted. So it now shows 0 in every case; before fix 1 it was already 0 whenever the spotter ran. Danish has two choices:
+- count the spotter's events by dropping `& rules` on those two lines, knowing they are as rough as tackles;
+- hide the stat.
+
+## 5. Other improvements: are these four enough?
+
+Yes. Everything else either has already been tried, belongs to someone else, or is a team call:
+
+| Idea | Verdict | Why |
+|---|---|---|
+| Wider window, looser boxes, possession fallback for crediting | skip | Hadi tested them in Sept: +1–3 points each at the same loss of precision |
+| Better tackle detection | skip | Already tried: a tackle-weighted training run moved tackle AP only from 0.06 to 0.08. The public model learned from just 34 tackles. |
+| Throw-in *team* from the last touch before the ball went out | free check, no run | `evaluate_spotter_labelled.py` already reports it: in Hadi's report, compare `team_correct` with `team_correct_previous_touch_rule` for throw-ins |
+| Faster spotter and a cloud demo (Deployment row) | team decision | Needs Hadi's GPU to measure. The spotter takes about 4.5 min per half now. |
+| Dispossessed always 0 | Danish | his file, one-line change (above) |
+
+## 6. What we have checked
+
+| Check | Result |
+|---|---|
+| Group D tests on the Mac | 28 passed, 1 skipped (needs a GPU) |
+| Whole project's tests on the Mac | 145 passed. The 4 that fail need an NVIDIA GPU or Hadi's data files, and failed the same way before these changes. |
+| Practice merge onto the latest `main` | All 7 code commits apply with no conflicts; same test results |
+| Spotter on held-out games | mAP 0.478 → 0.604 (FOOTPASS), 0.606 → 0.628 (BAS) |
+| Spotter, passes and carries | AP about 0.9 |
+| Spotter, tackles | AP 0.06–0.10 (weak; data limit) |
+| Shots on held-out games | precision 0.68, recall 0.74 |
+| Event rules with perfect positions (SoccerTrack) | passes: precision 0.69, recall 0.70 |
+| Passes per player against the true counts | correlation r = 0.89 |
+| Still to come | fix 3 table and fix 4 throw-in numbers, from Hadi's runs |
+
+## 7. Steps to finish
 
 | Step | What | Who | Status |
 |---|---|---|---|
-| 1 | Branch `dev-hasif` and a baseline commit of the Group D files as Hadi left them | Hasif | Done, `c084508` |
-| 2 | Test setup on the Mac | Hasif | Done |
-| 3 | Fix 2, duplicate `available()` | Hasif | Done, `24b34ab` |
-| 4 | Fix 1, tackle rule leak | Hasif | Done, `f50f8ec` |
-| 5 | Fix 3 code: label switch and runner | Hasif | Done, `8da14ad`, `e62fa33` |
-| 6 | This README | Hasif | Done |
-| 7 | Message Hadi (GPU run, sharing outputs, merge plan) and Danish (Dispossessed) | Hasif | To do |
-| 8 | Overnight loss comparison; send back `evidence/loss_ablation.json` | Hadi's PC | Waiting |
-| 9 | Fix 4 code and tests; deal with `contacts()` | Hasif | Next |
-| 10 | Crediting before and after, no GPU | Hadi's PC | After step 9 |
-| 11 | Put both results into this README (sections 4 and 5) | Hasif | After steps 8 and 10 |
-| 12 | Final commit on `dev-hasif` and push | Hasif | End |
-| 13 | Hadi copies the code commits into `main`, runs all tests and analyses one match in the app | Hadi | End |
-| 14 | Group D section in `main`'s README with the final numbers | Hasif and Hadi | End |
+| 1 | Branch and baseline commit | Hasif | Done |
+| 2 | Fix 1, fix 2 | Hasif | Done |
+| 3 | Fix 3 code | Hasif | Done |
+| 4 | Fix 4 code (4a and 4b) | Hasif | Done |
+| 5 | Practice merge onto `main` | Hasif | Done: clean |
+| 6 | Message Hadi (the runs in section 8) and Danish (Dispossessed) | Hasif | **To do** |
+| 7 | Hadi makes branch `hasif-groupd` with the 7 code commits and runs the tests | Hadi | Waiting |
+| 8 | Overnight: training comparison (fix 3) | Hadi's PC | Waiting |
+| 9 | Short, no GPU: crediting reasons and the throw-in rule (fix 4) | Hadi's PC | Waiting |
+| 10 | Fill the result tables in sections 4 and 6; switch the throw-in rule on if it won | Hasif | After 8 and 9 |
+| 11 | Final commit and push | Hasif | After 10 |
+| 12 | Hadi merges `hasif-groupd` into `main`, runs all tests and one match in the app | Hadi | End |
 | **Done** | **Group D code finished** | | |
-| 15 | Slides, poster box, demo minute, Q&A prep, backup video | Hasif | Wed 18–Fri 20 Nov |
+| 13 | Slides, poster box, demo minute, Q&A, backup video | Hasif | 18–20 Nov |
 
-Week 13 submission is about 23–27 Nov. Confirm the date on xSITe.
+Week 13 submission is about 23–27 Nov; check the date on xSITe.
 
-## 7. Commands
+## 8. Commands
 
 **Tests on the Mac (no GPU):**
 
 ```zsh
 cd PitchProfile
-.venv/bin/python -m pytest -q tests/test_spot_actions.py tests/test_spotter_data.py tests/test_match_events.py tests/test_loss_ablation.py
+.venv/bin/python -m pytest -q tests/test_spot_credit.py tests/test_spot_actions.py tests/test_spotter_data.py tests/test_match_events.py tests/test_loss_ablation.py
 ```
 
-**Step 8, the loss comparison on Hadi's PC.** It runs on a new branch, so `main` is untouched:
+**On Hadi's PC, steps 7–9.** He takes the code commits only, not the README ones, because `main` keeps its own README:
 
 ```
-git fetch origin dev-hasif
-git switch -c hasif-ablation main
-git checkout origin/dev-hasif -- PitchProfile
+git fetch origin
+git switch -c hasif-groupd origin/main
+git cherry-pick 24b34ab f50f8ec 8da14ad e62fa33 5f956d2 dc4f878 cbc0c1a
 cd PitchProfile
+.\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe scripts\run_loss_ablation.py --dry-run
 .\.venv\Scripts\python.exe scripts\run_loss_ablation.py
+.\.venv\Scripts\python.exe scripts\credit_reasons.py --footpass
+.\.venv\Scripts\python.exe scripts\measure_shot_credit.py throwinline
+.\.venv\Scripts\python.exe scripts\measure_shot_credit.py current
 ```
 
-The dry run only prints the commands. The real run takes about 7–8 hours, and the file to send back is `evidence/loss_ablation.json`.
+| Command | Takes | Sends back |
+|---|---|---|
+| `run_loss_ablation.py` | about 7–8 h, GPU (leave overnight) | `evidence/loss_ablation.json` |
+| `credit_reasons.py --footpass` | minutes, no GPU | `evidence/credit_reasons.json` |
+| `measure_shot_credit.py throwinline`, then `current` | no GPU; `current` must run last, as it puts the data back | `evidence/identity_footpass_variant_throwinline.json` and `..._current.json` |
 
-**Step 13, merging into `main` on Hadi's PC.** Copy the code commits only, not the README commits; `main` keeps its own README. The commits keep Hasif as author.
+**Step 12, the final merge on Hadi's PC.** If step 10 added a code commit (switching the throw-in rule on), Hadi cherry-picks it onto `hasif-groupd` first.
 
 ```
-git fetch origin dev-hasif
 git switch main
-git cherry-pick 24b34ab f50f8ec 8da14ad e62fa33 <fix 4 commits>
+git merge hasif-groupd
 cd PitchProfile
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Then analyse one match in the app and check that the event counts look normal. If a cherry-pick conflicts, stop and tell Hasif.
+Then he analyses one match in the app and checks that the event counts look normal. The commits keep Hasif as author.
+
+## 9. Commits on this branch
+
+| Commit | What |
+|---|---|
+| `c084508` | Baseline: the Group D files as they were on 5 Nov |
+| `24b34ab` | Fix 2: remove the duplicate `available()` |
+| `f50f8ec` | Fix 1: keep the rejected tackle rule out of the stats |
+| `8da14ad` | Fix 3: switch to train without the trick |
+| `e62fa33` | Fix 3: one-command training comparison |
+| `5f956d2` | Fix 2: remove the unused `contacts()` |
+| `dc4f878` | Fix 4a: record why a spotted action has no player |
+| `cbc0c1a` | Fix 4b: throw-in touchline rule, off until measured |
+| README commits | These notes (not copied to `main`) |
