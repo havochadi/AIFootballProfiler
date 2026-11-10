@@ -147,3 +147,15 @@ def test_spotted_file_records_the_clip_step(monkeypatch):
     monkeypatch.setattr(AS, 'checkpoint_path', lambda: Path('w/tdeed_team_bas_ft/checkpoint_best.pt'))
     monkeypatch.setattr(AS, 'CLIP_STEP', 50)
     assert AS.spot_video('match.mkv')['clip_step'] == 50
+
+
+def test_timing_command_compares_the_ways_and_puts_the_settings_back(fake_model, video):
+    from scripts.check_spotter_changes import show, time_settings
+    ways = {'before': (0, 2), 'read_ahead': (16, 2), 'read_ahead_half_overlap': (16, 4)}   # clips of 8 here
+    saved = AS.READ_AHEAD, AS.CLIP_STEP
+    t = time_settings(video, 60, ways)
+    assert (AS.READ_AHEAD, AS.CLIP_STEP) == saved
+    assert list(t) == list(ways) and all(r['frames'] == 60 for r in t.values())
+    assert t['before']['largest_score_change'] == t['read_ahead']['largest_score_change'] == 0.0
+    assert t['read_ahead_half_overlap']['clip_step'] == 4 and t['before']['speed_up'] == 1.0
+    assert 'read_ahead_half_overlap' in show({'timing': {'video': 'clip', 'frames': 60, 'settings': t}})
