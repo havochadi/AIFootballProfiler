@@ -33,6 +33,23 @@ def test_footpass_labels_are_partial():
     assert team[20] == 0 and team[50] == 1          # left_to_right 0 = the team defending the left goal
 
 
+def test_hard_labels_give_one_class_and_plain_background():
+    events = [{'frame': 20, 'label': 'Pass', 'left_to_right': 0}, {'frame': 50, 'label': 'Header', 'left_to_right': 1}]
+    allow, displ, team = SD.targets(events, 80, 'footpass', hard=True)
+    assert allow[0] == bit('background')            # no OUT / GOAL allowance
+    assert allow[20] == bit('PASS') and allow[50] == bit('HEADER')
+    _, partial_displ, partial_team = SD.targets(events, 80, 'footpass')
+    assert (displ == partial_displ).all() and (team == partial_team).all()    # only the class targets change
+
+
+def test_hard_labels_pick_one_of_the_partial_choices_and_leave_bas_alone():
+    assert set(SD.FOOTPASS_HARD) == set(SD.FOOTPASS_ALLOWED)
+    assert all(c in SD.FOOTPASS_ALLOWED[label] for label, c in SD.FOOTPASS_HARD.items())
+    events = [{'frame': 10, 'label': 'PLAYER SUCCESSFUL TACKLE', 'side': 'right'}]
+    for exact, hard in zip(SD.targets(events, 30, 'bas'), SD.targets(events, 30, 'bas', hard=True)):
+        assert (exact == hard).all()
+
+
 def test_partial_label_loss_is_weighted_cross_entropy_for_exact_labels():
     torch = pytest.importorskip('torch')
     torch.manual_seed(0)
