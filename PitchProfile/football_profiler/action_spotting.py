@@ -43,6 +43,11 @@ NMS_WINDOW = 12                # frames (about 1 s), the devkit's soft-NMS windo
 KEEP_SCORE = .05               # spots stored and counted (score-weighted) in statistics
 SCORE_THRESHOLD = .2           # confident-spot threshold for classes without a measured one
 BATCH = 4
+# The frames are read in a background thread, up to READ_AHEAD ahead (about 270 MB at 796x448), so
+# decoding the video overlaps the model on the GPU instead of taking turns with it. The frames and
+# their order do not change, so neither do the scores; 0 reads them in turn.
+READ_AHEAD = 256
+PROGRESS_EVERY = 2500          # frames between progress reports while reading a video
 
 
 def devkit_dir() -> Path:
@@ -112,11 +117,10 @@ def model():
     return net.to(device).eval(), kit, device
 
 
-def _frames(video_path, progress, max_frames=None):
+def _frames(video_path, max_frames=None):
     """(index, RGB 448x796 frame) at 12.5 frames/s, read sequentially."""
     import cv2
     cap = cv2.VideoCapture(str(video_path))
-    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) // FRAME_STRIDE
     i = src = 0
     try:
         while True:
@@ -131,10 +135,80 @@ def _frames(video_path, progress, max_frames=None):
             src += 1
             yield i, cv2.cvtColor(cv2.resize(frame, (WIDTH, HEIGHT), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2RGB)
             i += 1
-            if i % 2500 == 0:
-                progress(min(.95, i / max(total, 1)), f'Action spotting {i}/{total} frames')
     finally:
         cap.release()
+
+
+def _frame_total(video_path):
+    """Frames the spotter sees in the whole video (at 12.5/s), for progress reports."""
+    import cv2
+    cap = cv2.VideoCapture(str(video_path))
+    try:
+        return int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) // FRAME_STRIDE
+    finally:
+        cap.release()
+
+
+class _ReadFailed:
+    def __init__(self, error):
+        self.error = error
+
+
+def read_ahead(items, size=None):
+    """Iterate `items` while a background thread reads up to `size` (READ_AHEAD) of them ahead.
+
+    Video and JPEG decoding release the GIL, so the next frames decode while the model runs. Items
+    come out in the same order. An error in the reader is raised here, after the items before it;
+    stopping early stops the reader and closes `items`.
+    """
+    import queue
+    import threading
+    size = READ_AHEAD if size is None else size
+    if size <= 0:
+        yield from items
+        return
+    q = queue.Queue(maxsize=size)
+    stop = threading.Event()
+    end = object()
+
+    def put(item):
+        while not stop.is_set():
+            try:
+                q.put(item, timeout=.1)
+                return True
+            except queue.Full:
+                pass
+        return False
+
+    def read():
+        try:
+            for item in items:
+                if not put(item):
+                    return
+            put(end)
+        except BaseException as error:                # raised in the consumer instead
+            put(_ReadFailed(error))
+        finally:
+            close = getattr(items, 'close', None)
+            if close is not None:
+                close()
+
+    reader = threading.Thread(target=read, name='spotter-read-ahead', daemon=True)
+    reader.start()
+    try:
+        while True:
+            try:
+                item = q.get(timeout=.5)              # a timeout keeps Ctrl+C working on Windows
+            except queue.Empty:
+                continue
+            if item is end:
+                return
+            if isinstance(item, _ReadFailed):
+                raise item.error
+            yield item
+    finally:
+        stop.set()
+        reader.join(timeout=10)
 
 
 def double_head(pred, displ, num_classes):
@@ -155,11 +229,13 @@ def frame_scores(video_path, progress=lambda *a: None, max_frames=None, frames=N
     """Per-frame scores (frames x 25): background, then each class for the left and right team.
 
     `frames` replaces reading `video_path`: an iterable of (index, RGB 448x796 frame) at 12.5/s.
+    Either way the frames are read ahead in a background thread (read_ahead).
     """
     import torch
     net, kit, device = model()
     buf = {}
     scores, support = [], []
+    total = _frame_total(video_path) if frames is None else None
 
     def run(batch_starts):
         clips = np.stack([np.stack([buf[s + k] for k in range(CLIP_LEN)]) for s in batch_starts])
@@ -178,18 +254,24 @@ def frame_scores(video_path, progress=lambda *a: None, max_frames=None, frames=N
                 support[s + k] += 1
 
     pending, next_start, n = [], 0, 0
-    for i, frame in (frames if frames is not None else _frames(video_path, progress, max_frames)):
-        buf[i] = frame
-        n = i + 1
-        while next_start + CLIP_LEN <= n:
-            pending.append(next_start)
-            next_start += CLIP_STEP
-            if len(pending) == BATCH:
-                run(pending)
-                pending = []
-                # Keep one clip of margin: the final clip is aligned to the end of the video.
-                for k in [k for k in buf if k < next_start - CLIP_LEN]:
-                    del buf[k]
+    reader = read_ahead(frames if frames is not None else _frames(video_path, max_frames))
+    try:
+        for i, frame in reader:
+            buf[i] = frame
+            n = i + 1
+            while next_start + CLIP_LEN <= n:
+                pending.append(next_start)
+                next_start += CLIP_STEP
+                if len(pending) == BATCH:
+                    run(pending)
+                    pending = []
+                    # Keep one clip of margin: the final clip is aligned to the end of the video.
+                    for k in [k for k in buf if k < next_start - CLIP_LEN]:
+                        del buf[k]
+            if total is not None and n % PROGRESS_EVERY == 0:
+                progress(min(.95, n / max(total, 1)), f'Action spotting {n}/{total} frames')
+    finally:
+        reader.close()
     last_start = next_start - CLIP_STEP
     if n >= CLIP_LEN and last_start + CLIP_LEN < n:
         pending.append(n - CLIP_LEN)
