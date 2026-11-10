@@ -5,20 +5,25 @@ actions with evaluate_identity_footpass.py (report evidence/identity_footpass_<t
   current     the pipeline as it is
   ballfirst   the ball candidates before redetect_ball (raw_ball_first.csv.gz), kept as raw_ball_current.csv.gz for restoring
   nolegacy    PITCHPROFILE_NO_LEGACY_READER=1: players are named without the ResNet-34 + PARSeq readings
+  throwinline PITCHPROFILE_THROWIN_LINE=1: throw-ins left without a player go to the thrower at the touchline
+              (action_spotting.THROW_IN_LINE); compare its Throw-in row with `current`
 
-Usage (from PitchProfile/): .\.venv\Scripts\python.exe scripts\measure_shot_credit.py current|nolegacy|ballfirst
+Usage (from PitchProfile/): .\.venv\Scripts\python.exe scripts\measure_shot_credit.py current|nolegacy|ballfirst|throwinline
 Leaves the datasets analysed with that variant: finish by restoring the saved files, or running it once more with `current`.
 """
 import os, subprocess, sys
 from pathlib import Path
 
-variant = sys.argv[1]
+variant = sys.argv[1] if len(sys.argv) > 1 else ''
 env = dict(os.environ)
 env.pop('PITCHPROFILE_NO_LEGACY_READER', None)
+env.pop('PITCHPROFILE_THROWIN_LINE', None)
 if variant == 'ballfirst':
     pass                                            # raw_ball.csv.gz is swapped for raw_ball_first.csv.gz below (the pre-redetection candidates)
 elif variant == 'nolegacy':
     env['PITCHPROFILE_NO_LEGACY_READER'] = '1'      # naming without the ResNet-34 + PARSeq readings
+elif variant == 'throwinline':
+    env['PITCHPROFILE_THROWIN_LINE'] = '1'          # throw-ins credited to the thrower at the touchline
 elif variant != 'current':
     raise SystemExit(__doc__)
 root = Path(__file__).resolve().parents[1]

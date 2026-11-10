@@ -1,10 +1,16 @@
 """Crediting spotted actions to players (action_spotting.attribute) on small synthetic scenes."""
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 from football_profiler import action_spotting as AS
 from scripts.credit_reasons import table, tally
 
+ROOT = Path(__file__).resolve().parents[1]
 HZ = 12.5
 SAMPLE = 100                                   # the spot's sample; attribute() looks 2 samples either side
 DIRECTIONS = {'status': 'inferred', 'defends_left': 'A', 'attacks_right': 'A'}     # spotter side 'left' = team A
@@ -65,12 +71,50 @@ def test_uncredited_spots_say_why():
     assert set(AS.UNCREDITED) == {'no team', 'team not on screen', 'no ball', 'ball away from players'}
 
 
+def test_throw_in_goes_to_the_one_player_of_the_team_at_the_touchline(monkeypatch):
+    # The ball held overhead is not on the ball path: nobody can be credited from it.
+    players = {'A1': ('A', (40, -0.6), None), 'A2': ('A', (45, 8), None), 'B1': ('B', (42, 1), None)}
+    people, ball = scene(players)
+    monkeypatch.setattr(AS, 'THROW_IN_LINE', False)
+    assert credit('THROW IN', people, ball)['uncredited'] == 'no ball'                  # the pipeline as it is
+    monkeypatch.setattr(AS, 'THROW_IN_LINE', True)
+    r = credit('THROW IN', people, ball)
+    assert (r['segment'], r['credited_by'], r['uncredited']) == ('A1', 'touchline', None)
+    assert (r['x'], r['y']) == (40.0, -0.6)                                           # the thrower's position
+    assert credit('PASS', people, ball)['segment'] is None                            # throw-ins only
+
+
+def test_throw_in_rule_needs_exactly_one_player_of_the_team_at_a_touchline(monkeypatch):
+    monkeypatch.setattr(AS, 'THROW_IN_LINE', True)
+    two = {'A1': ('A', (40, 67.5), None), 'A2': ('A', (20, 0.4), None)}                 # one at each touchline
+    assert credit('THROW IN', *scene(two))['uncredited'] == 'no ball'
+    inside = {'A1': ('A', (40, 2.0), None)}                                             # 2 m in: not taking a throw
+    assert credit('THROW IN', *scene(inside))['segment'] is None
+    far_out = {'A1': ('A', (40, -3.5), None)}                                           # off the pitch (bench, warm-up)
+    assert credit('THROW IN', *scene(far_out))['segment'] is None
+
+
+def test_throw_in_rule_does_not_replace_a_credit_from_the_ball(monkeypatch):
+    monkeypatch.setattr(AS, 'THROW_IN_LINE', True)
+    people, ball = scene({'A1': ('A', (40, -0.5), None), 'A2': ('A', (44, 3), None)}, ball_xy=(44.5, 3))
+    r = credit('THROW IN', people, ball)
+    assert (r['segment'], r['credited_by']) == ('A2', 'pitch')
+
+
+def test_throw_in_rule_is_off_unless_the_variable_switches_it_on():
+    code = 'from football_profiler import action_spotting as AS; print(AS.THROW_IN_LINE)'
+    env = {k: v for k, v in os.environ.items() if k != 'PITCHPROFILE_THROWIN_LINE'}
+    read = lambda e: subprocess.run([sys.executable, '-c', code], cwd=ROOT, env=e, capture_output=True,
+                                    text=True, check=True).stdout.strip()
+    assert read(env) == 'False'
+    assert read({**env, 'PITCHPROFILE_THROWIN_LINE': '1'}) == 'True'
+
+
 def test_credit_reasons_counts_confident_spots_by_way_and_reason():
     rows = [{'type': 'pass', 'confident': True, 'credited_by': 'picture', 'uncredited': None},
             {'type': 'pass', 'confident': True, 'credited_by': None, 'uncredited': 'no ball'},
             {'type': 'pass', 'confident': False, 'credited_by': None, 'uncredited': 'no ball'},
-            {'type': 'header', 'confident': True, 'credited_by': None, 'uncredited': 'team not on screen'}]
+            {'type': 'throw_in', 'confident': True, 'credited_by': 'touchline', 'uncredited': None}]
     t = table(tally(rows), AS.UNCREDITED)
     assert t['pass']['spots'] == 2 and t['pass']['credited'] == .5 and t['pass']['no ball'] == .5
-    assert t['header'] == {'spots': 1, 'credited': 0.0, 'picture': 0.0, 'pitch': 0.0, 'no team': 0.0,
-                           'team not on screen': 1.0, 'no ball': 0.0, 'ball away from players': 0.0}
+    assert t['throw_in']['touchline'] == 1.0
