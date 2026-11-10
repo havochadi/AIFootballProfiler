@@ -274,7 +274,7 @@ cd PitchProfile
 .venv/bin/python -m pytest -q tests/test_spot_credit.py tests/test_spot_actions.py tests/test_spotter_data.py tests/test_match_events.py tests/test_loss_ablation.py
 ```
 
-**On Hadi's PC, steps 7–9.** He takes the code commits only, not the README ones, because `main` keeps its own README:
+**On Hadi's PC, steps 7–9.** He takes the code commits only, not the README ones, because `main` keeps its own README. The short checks run first, and the overnight training last:
 
 ```
 git fetch origin
@@ -282,18 +282,18 @@ git switch -c hasif-groupd origin/main
 git cherry-pick 24b34ab f50f8ec 8da14ad e62fa33 5f956d2 dc4f878 cbc0c1a
 cd PitchProfile
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe scripts\run_loss_ablation.py --dry-run
-.\.venv\Scripts\python.exe scripts\run_loss_ablation.py
 .\.venv\Scripts\python.exe scripts\credit_reasons.py --footpass
 .\.venv\Scripts\python.exe scripts\measure_shot_credit.py throwinline
 .\.venv\Scripts\python.exe scripts\measure_shot_credit.py current
+.\.venv\Scripts\python.exe scripts\run_loss_ablation.py --dry-run
+.\.venv\Scripts\python.exe scripts\run_loss_ablation.py
 ```
 
 | Command | Takes | Sends back |
 |---|---|---|
-| `run_loss_ablation.py` | about 7–8 h, GPU (leave overnight) | `evidence/loss_ablation.json` |
 | `credit_reasons.py --footpass` | minutes, no GPU | `evidence/credit_reasons.json` |
-| `measure_shot_credit.py throwinline`, then `current` | no GPU; `current` must run last, as it puts the data back | `evidence/identity_footpass_variant_throwinline.json` and `..._current.json` |
+| `measure_shot_credit.py throwinline`, then `current` | no GPU; `current` must run second, as it puts the data back | `evidence/identity_footpass_variant_throwinline.json` and `..._current.json` |
+| `run_loss_ablation.py` | about 7–8 h, GPU (leave overnight) | `evidence/loss_ablation.json` |
 
 **Step 12, the final merge on Hadi's PC.** If step 10 added a code commit (switching the throw-in rule on), Hadi cherry-picks it onto `hasif-groupd` first.
 
