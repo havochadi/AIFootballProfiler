@@ -32,6 +32,10 @@ from football_profiler import storage as S  # noqa: E402
 TOLERANCE_S = 1.0
 GRID = [.05, .1, .15, .2, .3, .4, .5, .6]
 FPS = 25 / AS.FRAME_STRIDE
+# Throw-in team opposite the last touch within these windows (action_spotting.THROW_IN_TEAM), for
+# throw-ins only: the ball is often out of play longer than the 4 s used for tackles and blocks.
+THROW_IN_CLASSES = ('THROW IN', 'Throw-in')
+THROW_IN_WINDOWS_S = (10.0, 20.0, 30.0)
 
 
 def spots_for(video, tag):
@@ -78,7 +82,9 @@ def greedy(pred, truth):
 def measure(videos, tag):
     classes = list(AS.CLASSES) if videos[0].dataset == 'bas' else list(SD.FOOTPASS_MEASURED)
     acc = {c: {'scores': [], 'hits': [], 'team_ok': [], 'team_flip_ok': [], 'team_rule_ok': [], 'offsets': [],
-               'labels': 0, 'sum_scores': 0.0} for c in classes}
+               'labels': 0, 'sum_scores': 0.0,
+               'team_window_ok': {w: [] for w in THROW_IN_WINDOWS_S} if c in THROW_IN_CLASSES else {}}
+           for c in classes}
     for v in videos:
         spots = spots_for(v, tag)
         truth = truth_for(v)
@@ -100,6 +106,9 @@ def measure(videos, tag):
                 # Won-ball actions: the other team from the last touch (action_spotting.WON_BALL).
                 rule = AS.won_ball_side(spots, s) if m >= 0 else None
                 a['team_rule_ok'].append(m >= 0 and (rule or s['side']) == t[m]['side'])
+                for w, ok in a['team_window_ok'].items():
+                    last = AS.won_ball_side(spots, s, w) if m >= 0 else None
+                    ok.append(m >= 0 and (last or s['side']) == t[m]['side'])
                 if m >= 0 and s['score'] >= .3:
                     a['offsets'].append(s['time_s'] - t[m]['time_s'])
     report = {}
@@ -122,6 +131,10 @@ def measure(videos, tag):
                               'team_correct': round(int(team.sum()) / max(tp, 1), 3),
                               'team_correct_if_flipped': round(int(flip.sum()) / max(tp, 1), 3),
                               'team_correct_previous_touch_rule': round(int(rule.sum()) / max(tp, 1), 3)}
+            if a['team_window_ok']:
+                rows[str(thr)]['team_correct_previous_touch_within_s'] = {
+                    str(int(w)): round(int(np.array(v, bool)[order][keep].sum()) / max(tp, 1), 3)
+                    for w, v in a['team_window_ok'].items()}
         f1 = {k: 2 * r['precision'] * r['recall'] / max(r['precision'] + r['recall'], 1e-9) for k, r in rows.items()}
         best = max(f1, key=f1.get)
         report[c] = {'labels': a['labels'], 'average_precision': round(ap, 3), 'sum_of_scores': round(a['sum_scores'], 1),
@@ -166,6 +179,11 @@ def main():
               f"(flipped {b['team_correct_if_flipped']:.2f}, previous-touch rule "
               f"{b['team_correct_previous_touch_rule']:.2f}) | sum of scores {v['sum_of_scores']} | "
               f"offset {v['median_offset_s']}")
+    for c in THROW_IN_CLASSES:
+        if c in classes and classes[c]['labels']:
+            b = classes[c]['by_threshold'][str(classes[c]['best_f1_threshold'])]
+            within = ', '.join(f'{w} s {v:.2f}' for w, v in b['team_correct_previous_touch_within_s'].items())
+            print(f"{c} team: spotter {b['team_correct']:.2f}; opposite the last touch within {within}")
 
 
 if __name__ == '__main__':

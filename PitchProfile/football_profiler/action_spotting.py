@@ -338,10 +338,22 @@ TOUCH_SCORE = .3
 TOUCH_WINDOW_S = 4.0
 
 
-def won_ball_side(spots, spot):
-    """Side of a tackle or block from the last confident touch before it (None if there is none)."""
+# Throw-in team. By the laws of the game the throw goes to the team that did not touch the ball
+# last. With THROW_IN_TEAM a throw-in's side is the opposite of the last confident on-ball spot
+# within THROW_IN_TOUCH_S before it (the ball is often out of play for 10-30 s before the throw, so
+# TOUCH_WINDOW_S is too short), else the spotter's own side. Off until measured:
+# evaluate_spotter_labelled.py reports throw-in team accuracy for several windows.
+THROW_IN_TEAM = os.environ.get('PITCHPROFILE_THROWIN_TEAM') == '1'
+THROW_IN_TOUCH_S = 30.0
+
+
+def won_ball_side(spots, spot, window_s=TOUCH_WINDOW_S):
+    """Side opposite the last confident touch within window_s before `spot` (None if there is none).
+
+    A tackle or block wins the ball from that team; a throw-in goes against it (THROW_IN_TEAM).
+    """
     before = [s for s in spots if s['label'] in TOUCH_LABELS and s['score'] >= TOUCH_SCORE
-              and 0 < spot['time_s'] - s['time_s'] <= TOUCH_WINDOW_S]
+              and 0 < spot['time_s'] - s['time_s'] <= window_s]
     if not before:
         return None
     return {'left': 'right', 'right': 'left'}[max(before, key=lambda s: s['time_s'])['side']]
@@ -437,6 +449,8 @@ def attribute(spots, people, ball, directions, sample_hz, threshold=KEEP_SCORE):
         side = s['side']
         if WON_BALL_SIDE == 'previous_touch' and s['label'] in WON_BALL:
             side = won_ball_side(spots, s) or side
+        elif THROW_IN_TEAM and s['label'] == 'THROW IN':
+            side = won_ball_side(spots, s, THROW_IN_TOUCH_S) or side
         team = side_team.get(side)
         sample = int(round(s['time_s'] * sample_hz))
         aerial = s['label'] in AERIAL
