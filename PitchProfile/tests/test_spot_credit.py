@@ -118,3 +118,27 @@ def test_credit_reasons_counts_confident_spots_by_way_and_reason():
     t = table(tally(rows), AS.UNCREDITED)
     assert t['pass']['spots'] == 2 and t['pass']['credited'] == .5 and t['pass']['no ball'] == .5
     assert t['throw_in']['touchline'] == 1.0
+
+
+def test_throw_in_team_from_the_last_touch_is_off_unless_switched_on(monkeypatch):
+    # Team A (left side) last touched the ball 12 s before; the spotter wrongly gives A the throw-in.
+    spots = [{'label': 'PASS', 'side': 'left', 'frame': 100, 'time_s': 8.0, 'score': .9},
+             {'label': 'THROW IN', 'side': 'left', 'frame': 250, 'time_s': 20.0, 'score': .9}]
+    people, ball = scene({'A1': ('A', (50, 30), None), 'B1': ('B', (52, 30), None)}, ball_xy=(50.5, 30))
+    team = lambda: next(r['team'] for r in AS.attribute(spots, people, ball, DIRECTIONS, HZ) if r['type'] == 'throw_in')
+    monkeypatch.setattr(AS, 'THROW_IN_TEAM', False)
+    assert team() == 'A'                                                   # the spotter's own side
+    monkeypatch.setattr(AS, 'THROW_IN_TEAM', True)
+    assert team() == 'B'                                                   # the team that did not touch it last
+    monkeypatch.setattr(AS, 'THROW_IN_TOUCH_S', 10.0)
+    assert team() == 'A'                                                   # no touch within 10 s: the spotter's side
+    assert AS.won_ball_side(spots, spots[1]) is None                       # tackles and blocks keep their 4 s
+
+
+def test_throw_in_team_rule_is_off_unless_the_variable_switches_it_on():
+    code = 'from football_profiler import action_spotting as AS; print(AS.THROW_IN_TEAM)'
+    env = {k: v for k, v in os.environ.items() if k != 'PITCHPROFILE_THROWIN_TEAM'}
+    read = lambda e: subprocess.run([sys.executable, '-c', code], cwd=ROOT, env=e, capture_output=True,
+                                    text=True, check=True).stdout.strip()
+    assert read(env) == 'False'
+    assert read({**env, 'PITCHPROFILE_THROWIN_TEAM': '1'}) == 'True'
