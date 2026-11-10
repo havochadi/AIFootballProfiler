@@ -36,6 +36,10 @@ DEFLECTION_MAX_GAP_S = 2.0
 MAX_PASS_FLIGHT_S = 4.0
 MAX_BALL_SPEED = 35.0         # m/s implied between release and next touch; faster means a broken ball path
 TACKLE_RADIUS_M = 2.2
+# A close, quick change of possession is a duel, not a pass. Calling it a tackle was rejected (6-14%
+# precision against SoccerTrack ground truth): tackles come from the video action spotter. The rule's
+# tackle and dispossessed events are only produced when asked, to measure it (evaluate_events_soccertrack).
+TACKLE_RULE = False
 INTERCEPT_MIN_SPEED = 6.0     # m/s ball speed just before the opponent's first touch
 INTERCEPT_MIN_FLIGHT_M = 3.0
 TACKLE_MAX_GAP_S = .6
@@ -268,13 +272,14 @@ def _ball_after(pos, view, sample, until):
     return q.sort_values('sample')
 
 
-def events(people, ball, directions, sample_hz):
+def events(people, ball, directions, sample_hz, tackle_rule=TACKLE_RULE):
     """Possession spells and derived events for one analysed half.
 
     Returns (events, spells, possession, people, segment table). Coordinates
     are in stadium orientation; 'forward_m' is measured towards the goal the
-    acting team attacks. Shots are not decided here: they come from the video action spotter
-    (match_pipeline.merge_spotted).
+    acting team attacks. Shots and tackles are not decided here: they come from the video action
+    spotter (match_pipeline.merge_spotted), also when it did not run. tackle_rule=True adds the
+    rejected rule's tackles, for measuring it only.
     """
     seg_map = stitch(people)
     people = people.assign(segment=people.tracklet.map(seg_map))
@@ -329,10 +334,11 @@ def events(people, ball, directions, sample_hz):
         # Possession changed team. Close, quick transfers are duels; otherwise interceptions.
         contact = _distance_at(positions, s.segment, nxt.segment, nxt.start_sample)
         if gap <= TACKLE_MAX_GAP_S and contact is not None and contact <= TACKLE_RADIUS_M:
-            ev.append({'type': 'tackle', 'segment': nxt.segment, 'team': nxt.team, 'view_shot': int(nxt.view_shot),
-                       'time_s': float(nxt.start_s), 'x': float(nxt.x0), 'y': float(nxt.y0), 'opponent': s.segment,
-                       'attack_sign': attack_sign(nxt.team, directions)})
-            add('dispossessed', s, opponent=nxt.segment)
+            if tackle_rule:
+                ev.append({'type': 'tackle', 'segment': nxt.segment, 'team': nxt.team,
+                           'view_shot': int(nxt.view_shot), 'time_s': float(nxt.start_s), 'x': float(nxt.x0),
+                           'y': float(nxt.y0), 'opponent': s.segment, 'attack_sign': attack_sign(nxt.team, directions)})
+                add('dispossessed', s, opponent=nxt.segment)
         else:
             kind = 'clearance' if _clearance(s, length, sign) else 'pass'
             add(kind, s, receiver=None, outcome='intercepted' if kind == 'pass' else 'cleared', end_x=float(nxt.x0),
