@@ -54,18 +54,14 @@ def published_checkpoint_path() -> Path:
     return weights_dir() / PUBLISHED_CHECKPOINT
 
 
-def available() -> bool:
-    """True when the devkit checkout and a checkpoint (the fine-tune or the published baseline) are present."""
-    return devkit_dir().is_dir() and checkpoint_path().is_file()
-
-
 def checkpoint_path() -> Path:
     from .football_models import weights_dir
     tuned = weights_dir() / CHECKPOINT
     return tuned if tuned.is_file() else published_checkpoint_path()
 
 
-def available():
+def available() -> bool:
+    """True when a checkpoint (the fine-tune or the published baseline) and the devkit's model code are present."""
     return checkpoint_path().is_file() and (devkit_dir() / 'model' / 'model.py').is_file()
 
 

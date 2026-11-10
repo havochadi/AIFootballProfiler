@@ -62,3 +62,15 @@ def test_spot_actions_survives_a_spotter_failure(monkeypatch):
     status = MP.spot_actions('half-4', 'video.mp4', DETECTION)
     assert status['status'].startswith('failed: RuntimeError')
     assert not (S.dataset_dir('half-4') / 'action_spots.json').exists()
+
+
+def test_spotter_available_needs_a_checkpoint_and_the_devkit_model_code(tmp_path, monkeypatch):
+    checkpoint = tmp_path / 'checkpoint_best.pt'
+    checkpoint.write_bytes(b'')
+    monkeypatch.setattr(AS, 'checkpoint_path', lambda: checkpoint)
+    monkeypatch.setattr(AS, 'devkit_dir', lambda: tmp_path / 'devkit')
+    assert not AS.available()                       # no devkit
+    (tmp_path / 'devkit' / 'model').mkdir(parents=True)
+    assert not AS.available()                       # a devkit folder without its model code is not enough
+    (tmp_path / 'devkit' / 'model' / 'model.py').write_text('')
+    assert AS.available()
