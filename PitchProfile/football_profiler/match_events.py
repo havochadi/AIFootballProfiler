@@ -39,6 +39,9 @@ TACKLE_RADIUS_M = 2.2
 # A close, quick change of possession is a duel, not a pass. Calling it a tackle was rejected (6-14%
 # precision against SoccerTrack ground truth): tackles come from the video action spotter. The rule's
 # tackle and dispossessed events are only produced when asked, to measure it (evaluate_events_soccertrack).
+# Classifying tackles and blocks from ball-contact kinematics was also tried there and rejected:
+# annotated tackles and blocks (about 1% of contacts) had the same distances, velocity changes and
+# timings as other contacts.
 TACKLE_RULE = False
 INTERCEPT_MIN_SPEED = 6.0     # m/s ball speed just before the opponent's first touch
 INTERCEPT_MIN_FLIGHT_M = 3.0
@@ -51,12 +54,6 @@ DRIBBLE_FRONT_M = 2.0        # opponent this close in front of a carrier...
 TAKE_ON_LATERAL_M = 1.2       # ...and in his path
 TAKE_ON_DRIVE_MS = 2.0        # carrier running at him (m/s towards goal); 7-9 attempts per team-half
 TAKE_ON_MIN_S = .4
-# Ball contacts (contacts()): looser than possession touches, so a stab or deflection counts. Used to
-# credit video-spotted actions to the player at the ball. Classifying tackles and blocks from contact
-# kinematics alone was tried on SoccerTrack ground truth and rejected: annotated tackles and blocks
-# (about 1% of contacts) have the same distances, velocity changes and timings as other contacts.
-DEF_CONTACT_DV = 2.5          # m/s velocity change at a contact
-DEF_CONTACT_RADIUS_M = 3.5    # player's feet to the ball
 
 
 def attack_sign(team, directions):
@@ -460,51 +457,5 @@ def _pressures(sp, positions, directions):
                     out.append({'type': 'pressure', 'segment': seg, 'team': row.team, 'view_shot': int(s.view_shot),
                                 'time_s': float(g.time_s.iat[0]), 'x': float(row.x), 'y': float(row.y),
                                 'opponent': s.segment, 'attack_sign': attack_sign(row.team, directions)})
-    return out
-
-
-def contacts(pos, people, ball=None):
-    """Ball contacts: local velocity-change peaks with every player then within reach of the ball.
-
-    Looser than possession touches: a stab, block or deflection counts. Where player boxes and the
-    ball's image position exist, the ball must also be on the player in the image (lofted balls
-    project onto the pitch far from where they are).
-    """
-    p = pos.sort_values('sample').reset_index(drop=True)
-    dv = p.dv.to_numpy(float)
-    observed = ~p.ball_interpolated.to_numpy(bool)
-    samples, views = p['sample'].to_numpy(), p.view_shot.to_numpy()
-    bx, by_ = p.ball_x.to_numpy(float), p.ball_y.to_numpy(float)
-    q = people[people.team.isin(['A', 'B']) & people.role.isin(['player', 'goalkeeper']) & np.isfinite(people.x)]
-    by_sample = {s: g for s, g in q.groupby('sample')}
-    image = {}
-    if ball is not None and 'cx' in ball:
-        image = {int(r.sample): (r.cx, r.cy) for r in ball.itertuples() if np.isfinite(r.cx)}
-    out = []
-    for i in range(len(p)):
-        if not (observed[i] and np.isfinite(dv[i]) and dv[i] >= DEF_CONTACT_DV):
-            continue
-        if dv[i] < np.nanmax(dv[max(0, i - 2): i + 3]):
-            continue
-        near = {}
-        for j in range(max(0, i - 2), i + 1):
-            if views[j] != views[i] or samples[i] - samples[j] > 2 or not np.isfinite(bx[j]):
-                continue
-            g = by_sample.get(samples[j])
-            if g is None:
-                continue
-            d = np.hypot(g.x.to_numpy() - bx[j], g.y.to_numpy() - by_[j])
-            img = image.get(int(samples[j]))
-            if img is not None and 'bbox_x' in g and g.bbox_w.notna().any():
-                bw, bh = g.bbox_w.to_numpy(), g.bbox_h.to_numpy()
-                on = ((img[0] >= g.bbox_x.to_numpy() - CONTACT_PAD * bw) & (img[0] <= g.bbox_x.to_numpy() + (1 + CONTACT_PAD) * bw) &
-                      (img[1] >= g.bbox_y.to_numpy() - .1 * bh) & (img[1] <= g.bbox_y.to_numpy() + 1.15 * bh))
-                d = np.where(on | ~np.isfinite(bw), d, np.inf)
-            for seg, team, dd in zip(g.segment, g.team, d):
-                if dd <= DEF_CONTACT_RADIUS_M and dd < near.get(seg, (None, np.inf))[1]:
-                    near[seg] = (team, float(dd))
-        if near:
-            out.append({'sample': int(samples[i]), 'time_s': float(p.time_s.iat[i]), 'view_shot': views[i],
-                        'x': float(bx[i]), 'y': float(by_[i]), 'dv': float(dv[i]), 'near': near})
     return out
 
