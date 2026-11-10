@@ -275,8 +275,34 @@ AERIAL = ('HEADER', 'THROW IN')
 IMAGE_PAD_X = .5                  # of the box width, either side
 IMAGE_ABOVE = {True: .6, False: .1}   # of the box height above its top (aerial / on the ground)
 IMAGE_BELOW = .15
+# Throw-ins left without a player. The ball is held above the thrower's head, so on the pitch it
+# projects metres from him (beyond the far touchline it is dropped from the ball path), while his
+# feet are on or behind the line. With THROW_IN_LINE such a throw-in goes to the player of the
+# throwing team within THROW_IN_LINE_M inside a touchline (or up to THROW_IN_OUTSIDE_M behind it),
+# only when he is the only one of his team there. Off until measured on FOOTPASS
+# (scripts/measure_shot_credit.py throwinline against current); the variable switches it on.
+THROW_IN_LINE = os.environ.get('PITCHPROFILE_THROWIN_LINE') == '1'
+THROW_IN_LINE_M = 1.5
+THROW_IN_OUTSIDE_M = 3.0          # match_post.PITCH_MARGIN: people further out are not on the pitch
 # Why a spot was left without a player ('uncredited'), in the order they are checked.
 UNCREDITED = ('no team', 'team not on screen', 'no ball', 'ball away from players')
+
+
+def _thrower(by_sample, window, team):
+    """The one player of `team` standing at a touchline near the spot, or None (nobody, or several)."""
+    from .match_events import W
+    found = {}
+    for k in window:
+        g = by_sample.get(k)
+        if g is None:
+            continue
+        mine = g[(g.team == team) & np.isfinite(g.x) & np.isfinite(g.y)]
+        y = mine.y.to_numpy(float)
+        inside = np.minimum(y, W - y)              # metres inside the nearer touchline; negative behind it
+        for (_, r), d in zip(mine.iterrows(), inside):
+            if -THROW_IN_OUTSIDE_M <= d <= THROW_IN_LINE_M:
+                found.setdefault(r.segment, r)
+    return next(iter(found.values())) if len(found) == 1 else None
 
 
 def _image_pick(players, cx, cy, aerial):
@@ -299,7 +325,8 @@ def attribute(spots, people, ball, directions, sample_hz, threshold=KEEP_SCORE):
     'left' is the team defending the left goal. The player is the one of that team whose picture
     box holds the ball's picture position within ATTRIBUTE_WINDOW samples of the spot (head or
     feet nearest, see _image_pick), otherwise the one nearest the ball on the pitch within
-    ATTRIBUTE_RADIUS_M; with neither the spot stays team-level (segment None) and 'uncredited' says
+    ATTRIBUTE_RADIUS_M, otherwise for a throw-in with THROW_IN_LINE the one player of that team at a
+    touchline (_thrower); with none the spot stays team-level (segment None) and 'uncredited' says
     why (UNCREDITED). Each event keeps its score; 'confident' marks scores above the class threshold
     (thresholds()). Statistics add up scores (expected counts): on this footage the spotter's scores
     behaved as probabilities (summed throw-in scores 166 against 171 labelled throw-ins).
@@ -364,6 +391,10 @@ def attribute(spots, people, ball, directions, sample_hz, threshold=KEEP_SCORE):
             how = 'pitch'
         else:
             player = None
+        if player is None and THROW_IN_LINE and s['label'] == 'THROW IN' and team is not None:
+            player = _thrower(by_sample, window, team)
+            if player is not None:
+                how, row = 'touchline', None           # the thrower's position; the ball's is off
         if player is not None:
             why = None
         elif team is None:

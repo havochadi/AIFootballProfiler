@@ -3,8 +3,10 @@
 For each analysed half with action_spots.json, the CPU stages are rebuilt (pitch positions, teams,
 ball path: match_pipeline.stages; player segments: match_events.events) and the spots are credited
 as the pipeline does it (action_spotting.attribute). Every confident spot (score at or above its
-class threshold) is counted by how it was credited (picture, pitch) or why it was not
-(action_spotting.UNCREDITED). Whether a credit names the right player needs ground truth: scripts/measure_shot_credit.py.
+class threshold) is counted by how it was credited (picture, pitch, touchline) or why it was not
+(action_spotting.UNCREDITED). The spots are credited twice, with the throw-in touchline rule
+(action_spotting.THROW_IN_LINE) off and on, so the rule's effect shows before it is switched on.
+Whether a credit names the right player needs ground truth: scripts/measure_shot_credit.py.
 
 Report: evidence/credit_reasons.json.
 
@@ -21,7 +23,7 @@ from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WAYS = ('picture', 'pitch')
+WAYS = ('picture', 'pitch', 'touchline')
 
 
 def tally(rows):
@@ -71,22 +73,32 @@ def main():
             and (d / 'raw_people.csv.gz').is_file()]
     if not dirs:
         raise SystemExit(f'No analysed halves with action_spots.json in {S.DATA / "datasets"}')
-    totals, halves = {}, {}
+    totals = {'rule_off': {}, 'rule_on': {}}
+    halves = {}
     for d in dirs:
         spots = S.read_json(d / 'action_spots.json')['spots']
         _, hz, _, people, ball, directions, _ = MP.stages(d.name)
         people = ME.events(people, ball, directions, hz)[3]           # players with their segments
-        part = tally(AS.attribute(spots, people, ball, directions, hz))
-        merge(totals, part)
-        halves[d.name] = table(part, AS.UNCREDITED)
-        print(f'{d.name}: {sum(sum(c.values()) for c in part.values())} confident spots', flush=True)
+        halves[d.name] = {}
+        for key, on in (('rule_off', False), ('rule_on', True)):
+            AS.THROW_IN_LINE = on
+            part = tally(AS.attribute(spots, people, ball, directions, hz))
+            merge(totals[key], part)
+            halves[d.name][key] = table(part, AS.UNCREDITED)
+        off = halves[d.name]['rule_off'].get('throw_in', {}).get('credited')
+        on = halves[d.name]['rule_on'].get('throw_in', {}).get('credited')
+        print(f'{d.name}: throw-ins credited {off} -> {on} with the touchline rule', flush=True)
     report = {'created': S.now(), 'datasets': [d.name for d in dirs], 'reasons': list(AS.UNCREDITED),
-              'overall': table(totals, AS.UNCREDITED), 'halves': halves}
+              'overall': {k: table(v, AS.UNCREDITED) for k, v in totals.items()}, 'halves': halves}
     S.write_json(S.EVIDENCE / 'credit_reasons.json', report)
     cols = ['spots', 'credited', *WAYS, *AS.UNCREDITED]
-    print(f'\n{"":12}' + ''.join(f'{c:>24}' for c in cols))
-    for kind, row in report['overall'].items():
+    print('\nTouchline rule off (the pipeline as it is):')
+    print(f'{"":12}' + ''.join(f'{c:>24}' for c in cols))
+    for kind, row in report['overall']['rule_off'].items():
         print(f'{kind:12}' + ''.join(f'{row[c]:>24}' for c in cols))
+    t = report['overall']['rule_on'].get('throw_in')
+    if t:
+        print(f"\nThrow-ins with the touchline rule on: credited {t['credited']}, by touchline {t['touchline']}")
 
 
 if __name__ == '__main__':
