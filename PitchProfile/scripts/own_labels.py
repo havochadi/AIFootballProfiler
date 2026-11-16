@@ -4,7 +4,7 @@ The labels are a CSV sheet, one row per action seen in the clip:
   time     from the start of the clip, as mm:ss, mm:ss.s or seconds
   half     1 or 2
   action   pass, cross, shot, header, tackle, interception, throw-in, carry, clearance or block
-  team     the team's name as the app shows it, or the kit group A or B
+  team     the team's name (as the app or the fixture names it), or the kit group A or B
   jersey   shirt number, or blank / unknown when it cannot be read
   name     the player's name (for reading the sheet; not scored)
   notes    anything else
@@ -12,7 +12,9 @@ Each label is matched to the nearest unused event of the same action within --to
 (rule events, and video-model events above their confidence threshold, as the app's statistics use).
 Reported per action and overall: found (recall), precision against our events inside the labelled
 clip, the team right when found, credited to a player when found, and the right player (team and
-shirt number) among the labels with a readable number.
+shirt number) among the labels with a readable number. With --sample (the sheet holds the actions
+that could be seen clearly, not every action) precision is not reported, since our events that no
+label covers are not necessarily wrong.
 
 Report: evidence/own_labels_<tag>.json (the app's Model performance page shows the newest).
 
@@ -22,7 +24,8 @@ Usage (from PitchProfile/):
       into .runtime/ and prints the matching check command
   python scripts/own_labels.py template labels/own_labels.csv
   python scripts/own_labels.py check --dataset <dataset id> --labels labels/own_labels.csv
-      --clip-start 12:00 [--clip-length 10:00] [--tolerance 1.0] [--tag clip1]
+      --clip-start 12:00 [--clip-length 10:00] [--tolerance 1.0] [--tag clip1] [--sample]
+      [--team A=Chelsea --team "B=Manchester United"]   (only when the app has no names for the kits)
 --clip-start is where the clip starts on the dataset's video, which is the app's video clock; `clip`
 cuts from that same video at that same time, so a label's time in the clip plus the start is the
 time the app gives the event.
@@ -37,13 +40,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from football_profiler import match_context as MC  # noqa: E402
 from football_profiler import storage as S  # noqa: E402
 
 COLUMNS = ['time', 'half', 'action', 'team', 'jersey', 'name', 'notes']
 # Our event types for each labelled action; a rule pass marked as a cross also counts as a cross.
-ACTIONS = {'pass': ('pass', 'high_pass'), 'cross': ('cross',), 'shot': ('shot',), 'header': ('header',),
-           'tackle': ('tackle',), 'interception': ('interception',), 'throw-in': ('throw_in',),
-           'carry': ('carry', 'dribble'), 'clearance': ('clearance',), 'block': ('block',)}
+# The video model calls a carry 'drive', and a free kick (labelled as the pass or shot it is) 'free_kick'.
+ACTIONS = {'pass': ('pass', 'high_pass', 'free_kick'), 'cross': ('cross',), 'shot': ('shot',),
+           'header': ('header',), 'tackle': ('tackle',), 'interception': ('interception',),
+           'throw-in': ('throw_in',), 'carry': ('carry', 'dribble', 'drive'), 'clearance': ('clearance',),
+           'block': ('block',)}
 ALIASES = {'throw in': 'throw-in', 'throwin': 'throw-in', 'throw_in': 'throw-in', 'drive': 'carry',
            'dribble': 'carry', 'high pass': 'pass', 'long pass': 'pass', 'lofted pass': 'pass'}
 UNKNOWN = {'', '?', 'unknown', 'n/a', 'na', '-'}
@@ -69,16 +75,43 @@ def action_of(text):
 
 
 def team_of(text, teams):
-    """A label's team -> kit group 'A' / 'B', or None when blank or not recognised."""
+    """A label's team -> kit group 'A' / 'B', or None when blank or not recognised. teams is
+    {kit group: names} (see team_names) or a manifest's {kit group: {'name': ...}}; names are compared
+    as the match context compares them ('Man Utd' = 'Manchester United', 'Chelsea FC' = 'Chelsea')."""
     t = str(text or '').strip()
     if t.lower() in UNKNOWN:
         return None
     if t.upper() in ('A', 'B'):
         return t.upper()
-    for key, info in (teams or {}).items():
-        if t.lower() == str(info.get('name', '')).strip().lower():
-            return key
+    key = MC.normal_name(t)
+    for kit, names in (teams or {}).items():
+        names = [names.get('name')] if isinstance(names, dict) else names
+        if key and any(key == MC.normal_name(str(n or '')) for n in names):
+            return kit
     return None
+
+
+def team_names(manifest, extra=()):
+    """{kit group: names} the labels may use: the manifest's names, the fixture team each kit group
+    was confirmed as in the app (a whole match without its own confirmation uses its first half's),
+    and any 'A=Chelsea' given on the command line."""
+    names = {k: {str(v.get('name') or '')} for k, v in (manifest.get('teams') or {}).items()}
+    for m in (manifest, *[S.read_json(S.dataset_dir(h) / 'manifest.json', {}) for h in (manifest.get('halves') or [])[:1]]):
+        if not m.get('id'):
+            continue
+        info = MC.state_for(m)
+        fixture = {t['id']: t['name'] for t in (info['context'] or {}).get('teams', [])}
+        bound = {kit: fixture[tid] for kit, tid in info['binding'].get('teams', {}).items() if tid in fixture}
+        if bound:
+            for kit, name in bound.items():
+                names.setdefault(kit, set()).add(name)
+            break
+    for item in extra:
+        kit, _, name = item.partition('=')
+        if kit.strip().upper() not in ('A', 'B') or not name.strip():
+            raise SystemExit(f'--team {item!r}: use A=<team name> or B=<team name>')
+        names.setdefault(kit.strip().upper(), set()).add(name.strip())
+    return names
 
 
 def jersey_of(text):
@@ -86,9 +119,11 @@ def jersey_of(text):
     return int(t) if t.isdigit() else None
 
 
-def read_labels(path, manifest, clip_start_s=0.0):
+def read_labels(path, manifest, clip_start_s=0.0, teams=None):
     """The sheet's rows with their time on the dataset's video clock (clip start + time in the clip),
-    kit group and shirt number. 'half' is checked against a half's dataset; it does not move times."""
+    kit group and shirt number. 'half' is checked against a half's dataset; it does not move times.
+    teams: {kit group: names} (default: the manifest's team names)."""
+    teams = manifest.get('teams') if teams is None else teams
     rows = []
     with open(path, newline='', encoding='utf-8-sig') as f:
         for i, r in enumerate(csv.DictReader(f), start=2):
@@ -104,7 +139,7 @@ def read_labels(path, manifest, clip_start_s=0.0):
             if not manifest.get('halves') and manifest.get('half') and half != manifest['half']:
                 raise ValueError(f'{path}, row {i}: half {half}, but this dataset is half {manifest["half"]}')
             rows.append({'row': i, 'time_s': round(time_s, 2), 'half': half, 'action': action,
-                         'team_text': r.get('team', ''), 'team': team_of(r.get('team'), manifest.get('teams')),
+                         'team_text': r.get('team', ''), 'team': team_of(r.get('team'), teams),
                          'jersey': jersey_of(r.get('jersey')), 'name': r.get('name', ''), 'notes': r.get('notes', '')})
     return sorted(rows, key=lambda r: r['time_s'])
 
@@ -141,8 +176,9 @@ def _share(n, d):
     return round(n / d, 3) if d else None
 
 
-def score(labels, events, players, window, tolerance=TOLERANCE_S):
-    """Per action and overall shares, and one row per label for checking by hand."""
+def score(labels, events, players, window, tolerance=TOLERANCE_S, sample=False):
+    """Per action and overall shares, and one row per label for checking by hand. sample: the labels
+    are the clearly seen actions, not all of them, so precision is left out (None)."""
     events = counted(events)
     pairs, used = match(labels, events, tolerance)
     jersey = {p['player_id']: (p.get('jersey'), p.get('team_key') or p.get('team')) for p in players}
@@ -170,7 +206,7 @@ def score(labels, events, players, window, tolerance=TOLERANCE_S):
         teamed = [r for r in found if r['team_ok'] is not None]
         numbered = [r for r in mine if r['right_player'] is not None]
         return {'labels': len(mine), 'found': _share(len(found), len(mine)),
-                'events_in_clip': len(ours), 'precision': _share(len(hit), len(ours)),
+                'events_in_clip': len(ours), 'precision': None if sample else _share(len(hit), len(ours)),
                 'team_right_when_found': _share(sum(r['team_ok'] for r in teamed), len(teamed)),
                 'credited_when_found': _share(sum(r['credited'] for r in found), len(found)),
                 'labels_with_jersey': len(numbered),
@@ -184,22 +220,24 @@ def check(args):
     d = S.dataset_dir(args.dataset)
     m = S.read_json(d / 'manifest.json')
     start = parse_time(args.clip_start)
-    labels = read_labels(args.labels, m, start)
+    teams = team_names(m, args.team or ())
+    labels = read_labels(args.labels, m, start, teams)
     if not labels:
         raise SystemExit(f'No labels in {args.labels}')
     unknown_team = sorted({r['team_text'] for r in labels if r['team'] is None and r['team_text'].lower() not in UNKNOWN})
     if unknown_team:
-        names = ', '.join(f"{k} = {v.get('name')}" for k, v in (m.get('teams') or {}).items())
-        print(f'Team names not recognised (left unscored): {unknown_team}. This match: {names}')
+        names = '; '.join(f"{k} = {', '.join(sorted(v))}" for k, v in sorted(teams.items()))
+        print(f'Team names not recognised (left unscored): {unknown_team}. This match: {names}. '
+              f'Check which kit group each team is in the app, then add --team A=<name> --team B=<name>.')
     if args.clip_length:
         window = (start, start + parse_time(args.clip_length))
     else:
         window = (labels[0]['time_s'] - args.tolerance, labels[-1]['time_s'] + args.tolerance)
     events = S.read_json(d / 'events.json', {'events': []})['events']
-    result = score(labels, events, m.get('players', []), window, args.tolerance)
+    result = score(labels, events, m.get('players', []), window, args.tolerance, args.sample)
     report = {'created': S.now(), 'dataset': args.dataset, 'title': m.get('title'),
               'labels_file': Path(args.labels).name, 'clip_start_s': start, 'window_s': [round(x, 2) for x in window],
-              'tolerance_s': args.tolerance, **result}
+              'tolerance_s': args.tolerance, 'sample': args.sample, **result}
     out = S.EVIDENCE / f'own_labels_{args.tag}.json'
     S.write_json(out, report)
     print(f"{'action':13}{'labels':>7}{'found':>8}{'precision':>11}{'team ok':>9}{'player':>8}")
@@ -207,6 +245,8 @@ def check(args):
         cell = lambda x: '-' if x is None else f'{x:.0%}'
         print(f"{name:13}{a['labels']:>7}{cell(a['found']):>8}{cell(a['precision']):>11}"
               f"{cell(a['team_right_when_found']):>9}{cell(a['right_player']):>8}")
+    if args.sample:
+        print('Precision not reported: the sheet is a sample of clearly seen actions (--sample).')
     print(f'\nSaved {out}')
 
 
@@ -260,6 +300,10 @@ def main():
     c.add_argument('--clip-length', default=None, help='length of the clip, for precision (default: first to last label)')
     c.add_argument('--tolerance', type=float, default=TOLERANCE_S)
     c.add_argument('--tag', default='clip')
+    c.add_argument('--sample', action='store_true',
+                   help='the sheet holds the clearly seen actions, not every one: no precision')
+    c.add_argument('--team', action='append', metavar='A=NAME',
+                   help="a kit group's team name, when the app has none (repeatable)")
     c.set_defaults(run=check)
     args = p.parse_args()
     args.run(args)
