@@ -2,7 +2,7 @@
 
 Owner: Hasif. This branch (`dev-hasif`) holds only the Group D files. The full project is on `main`.
 
-**Where we are (14 Nov).** The six changes of 10 Nov (C1–C6) are done and wait for one round of runs on Hadi's PC. After the profs' feedback on 12 Nov, three more were added (C7–C9): a live model view under the match video, a model performance page, and our own labelled clip to score the app against. C7 and C8 are coded and tested. C9's tools are ready, and the labels wait for the clip from Hadi. All 15 code commits apply cleanly onto the latest `main` in a practice merge, and every test still passes (section 6).
+**Where we are (17 Nov).** The six changes of 10 Nov (C1–C6) are done and wait for one round of runs on Hadi's PC. After the profs' feedback on 12 Nov, three more were added (C7–C9): a live model view under the match video, a model performance page, and our own labelled clip to score the app against. All three are done: C7 and C8 are coded and tested, and C9's clip (10 minutes of the demo match) is labelled, 31 actions. Its score comes from one command on Hadi's PC. All 16 code commits apply cleanly onto the latest `main` in a practice merge, and every test still passes (section 6). Group D's part is finished apart from Hadi's runs and the merge.
 
 **Feedback of 12 Nov, and where it went:**
 
@@ -102,7 +102,7 @@ Honest labels: not every change is an improvement. Some fix bugs, some clean up,
 | C6 | Throw-in team from the last touch | possible improvement | Throw-in team from the spotter's guess | The team that did not touch the ball last | **switch, off** | Hadi measures |
 | C7 | Live model view | new feature (feedback) | Nothing showed which model made an event, or why it got no player | Under the video: each event near the playhead with its model, score and how the player was picked or why not | on, once the hooks are in | done; Hadi checks it on a real match |
 | C8 | Model performance page | new feature (feedback) | Scores only in report files on Hadi's PC | One page: model versions side by side, each action, crediting, speed, own labels, C1–C6 before and after | on, once the hooks are in | done; fills in as Hadi's runs finish |
-| C9 | Our own labelled clip | dataset (feedback) | Only public labels | One clip of the demo match labelled by us, and the app scored against it | n/a | tools done; labels wait for the clip |
+| C9 | Our own labelled clip | dataset (feedback) | Only public labels | 10 minutes of the demo match labelled by us (31 actions), and the app scored against it | n/a | labelled; score waits for Hadi's run |
 
 ## 4. Each change in detail
 
@@ -286,21 +286,25 @@ Rows are sorted by `order`, so identity (30) sits above events (40). They redraw
 
 **Why.** The rubric's Dataset row asks, for "Excellent", for an own or curated dataset that we annotate ourselves. Prof Panicker confirmed that labelling the players' actions and who the players are counts. It also gives the app one score that does not depend on any public label set.
 
-**The clip.** 10 minutes of the demo match, mostly the wide camera, cut from the analysed half the app shows. `own_labels.py clip` cuts it from that half's own video at an exact start, so the label times line up with the app's clock.
+**The clip.** 10 minutes of the demo match, Chelsea v Manchester United (7 Feb 2016): 15:00 to 25:00 of the first half. It is cut from the whole-match video the demo plays (dataset `sn-20160207-chelsea-manchester-united`, file `sn-20160207-chelsea-manchester-united.mkv`, 95:20). That video starts at kick-off, so the clip's 0:00 is 15:00 on the app's clock, and the match clock on screen agrees. `own_labels.py clip --dataset sn-20160207-chelsea-manchester-united --start 15:00 --length 10:00` cuts the same clip again (re-encoded, so it starts on the exact frame).
+
+**How it was labelled.** By hand, frame by frame at 2.5 to 5 frames a second, from full-resolution crops of the broadcast. Each action is timed to the frame where the ball is played. Shirt numbers come from the shirt when it can be read, or from the close-up that follows. Replays, crowd shots and close-ups between plays are not labelled; live play on the close camera is.
+
+**What is in it.** 31 actions, 18 by Chelsea and 13 by Manchester United: 14 passes, 5 crosses, 4 headers, 2 tackles, 2 throw-ins, 2 clearances, 1 block and 1 shot. 17 have a shirt number. It is a sample of the actions that could be seen and timed clearly, not every action. In 720p broadcast frames the ball cannot be followed through crowded play on the far side, so many passes there were left out, and so were a corner and a header that could not be timed. Carries were not labelled: a carry has no single moment to time it by. So the score reports found, right team and right player, and leaves out precision: an event of ours that no label covers is not necessarily wrong (`check --sample`).
 
 **The sheet** is `PitchProfile/labels/own_labels.csv`, one row per action:
 
 | Column | What goes in |
 |---|---|
-| `time` | Time in the clip, mm:ss.s, at the moment the ball is played: it leaves the foot (pass, cross, shot, clearance), the head (header) or the hands (throw-in); the contact that wins it (tackle); the touch that cuts out a pass (interception) |
+| `time` | Time in the clip, mm:ss.s, at the moment the ball is played: it leaves the foot (pass, cross, shot, clearance), the head (header) or the hands (throw-in); the contact that wins it (tackle); the touch that cuts out a pass (interception); the body it hits (block) |
 | `half` | 1 or 2 |
-| `action` | pass (including lofted), cross, shot, header, tackle, interception, throw-in, clearance, block, carry |
-| `team` | The team's name as the app shows it, or the kit group A or B |
+| `action` | pass (including lofted, free kicks and goal kicks), cross (including corners into the box), shot, header, tackle, interception, throw-in, clearance, block, carry |
+| `team` | The team's name (Chelsea, Manchester United), or the kit group A or B |
 | `jersey` | Shirt number; blank when it cannot be read |
 | `name` | The player's name, when known |
 | `notes` | Anything unclear |
 
-**Scoring.** `own_labels.py check` matches each label to the nearest event of the same action within 1 s, using the events the statistics count (rule events, and video-model events above their threshold), each event once. Per action and overall it reports: found, precision against our events inside the clip, the right team when found, and the right player (team and shirt number) among labels with a readable number. The report goes to `evidence/own_labels_<tag>.json`, and the C8 page shows the newest.
+**Scoring.** `own_labels.py check` matches each label to the nearest event of the same action within 1 s, using the events the statistics count (rule events, and video-model events above their threshold), each event once. The video model's `drive` counts as a carry and its `free_kick` as a pass. Per action and overall it reports: found, the right team when found, and the right player (team and shirt number) among labels with a readable number, plus precision against our events inside the clip when the sheet holds every action (without `--sample`). Team names are matched to kit groups through the fixture team each kit group was confirmed as in the app (a whole match uses its first half's); if the app has none, `--team A=<name> --team B=<name>` sets them. The report goes to `evidence/own_labels_<tag>.json`, and the C8 page shows the newest.
 
 ### Connecting the pages (four lines on `main`)
 
@@ -337,11 +341,12 @@ The new pages are Group D files, but the app finds them through four lines in tw
 
 | Check | Result |
 |---|---|
-| Group D tests on the Mac | 62 passed, 1 skipped (needs a GPU) |
-| Whole project's tests on the Mac | 179 passed. The 4 that fail need an NVIDIA GPU or Hadi's data, and failed the same way before these changes. |
-| Practice merge onto the latest `main` | All 15 code commits apply with no conflicts; the installer adds the four hook lines; same test results; both new pages' API routes load |
+| Group D tests on the Mac | 64 passed, 1 skipped (needs a GPU) |
+| Whole project's tests on the Mac | 181 passed. The 4 that fail need an NVIDIA GPU or Hadi's data, and failed the same way before these changes. |
+| Practice merge onto the latest `main` (`c2ae9cb`, 17 Nov) | All 16 code commits apply with no conflicts; the installer adds the four hook lines; same test results; both new pages' API routes load |
 | C7 and C8 in a browser | The real app on a made-up match (generated video, events and reports) in a headless browser: both pages draw in the app's dark theme, with no script errors and no failed requests. At phone width (390 px), no sideways scrolling. |
-| C9 clip and checker | The clip starts on the exact frame asked for; label matching, team and shirt-number scoring checked on made-up labels |
+| C9 clip and checker | The clip starts on the exact frame asked for; label matching, team and shirt-number scoring checked on made-up labels; the real sheet (31 rows) read end to end against a stand-in of the demo dataset, every team name found through the first half's confirmed kits |
+| Aamir's live identity row (`37159c4`) | Uses the C7 row API as documented; his own test passes |
 | Defaults after the merge | read-ahead on; half overlap, both throw-in rules and the old tackle rule off |
 | C5a, old code vs new code on a test video | identical scores, spots and progress messages |
 | Hadi's new command, run with stand-ins on the Mac | works end to end: timing, both accuracy runs, comparison table |
@@ -351,7 +356,7 @@ The new pages are Group D files, but the app finds them through four lines in tw
 | Shots on held-out games | precision 0.68, recall 0.74 |
 | Event rules with perfect positions (SoccerTrack) | passes: precision 0.69, recall 0.70 |
 | Passes per player against the true counts | correlation r = 0.89 |
-| Still to come | C3 table, C4 reasons and throw-in numbers, C5 speed and accuracy, C6 throw-in team, all from Hadi's runs; C7 and C8 on a real match; C9 labels and score |
+| Still to come | C3 table, C4 reasons and throw-in numbers, C5 speed and accuracy, C6 throw-in team, all from Hadi's runs; C7 and C8 on a real match; C9 score |
 
 ## 7. Steps to finish
 
@@ -360,17 +365,17 @@ The new pages are Group D files, but the app finds them through four lines in tw
 | 1 | Branch, baseline, C1–C6 coded and tested | Hasif | Done |
 | 2 | Practice merge onto `main` | Hasif | Done: clean |
 | 3 | C7–C9 coded and tested (profs' feedback) | Hasif | Done |
-| 4 | Cut the 10-minute clip with `own_labels.py clip` and send it, with the dataset id and start time | Hadi | **To do** |
-| 5 | Label the clip into `labels/own_labels.csv`, then commit and push | Hasif | After 4 |
-| 6 | Make branch `hasif-groupd` with the 15 code commits, connect the pages, run the tests | Hadi | Waiting |
+| 4 | Cut the 10-minute clip (15:00–25:00 of the demo match's whole-match video) | Hasif | Done |
+| 5 | Label the clip into `labels/own_labels.csv` (31 actions), commit and push | Hasif | Done |
+| 6 | Make branch `hasif-groupd` with the 16 code commits, connect the pages, run the tests | Hadi | **To do** |
 | 7 | Short checks, no GPU: crediting reasons and C4b | Hadi's PC | Waiting |
 | 8 | Spotter check, about 30 min of GPU: C5 speed and accuracy, C6 | Hadi's PC | Waiting |
 | 9 | Overnight: training comparison (C3) | Hadi's PC | Waiting |
-| 10 | Score the app against our labels, gather all scores, send back `evidence/model_performance.json` | Hadi's PC | After 5–9 |
+| 10 | Score the app against our labels, gather all scores, send back `evidence/model_performance.json` | Hadi's PC | After 6–9 |
 | 11 | Fill the result tables; switch on whatever won (one line each) | Hasif | After 10 |
 | 12 | Final commit and push | Hasif | After 11 |
 | 13 | Hadi cherry-picks the final commit(s), merges `hasif-groupd` into `main`, runs all tests, and checks both pages on one real match | Hadi | End |
-| 14 | Aamir adds his identity row (C7) and section (C8) on top, from his own files | Aamir | After 6 |
+| 14 | Aamir's identity row (C7) is in (`37159c4` on `aamir/player-identity`); his section on the C8 page is still to come | Aamir | Row done |
 | **Done** | **Group D code finished** | | |
 | 15 | Slides, poster box, demo minute, Q&A, backup video | Hasif | 18–20 Nov |
 
@@ -385,21 +390,12 @@ cd PitchProfile
 .venv/bin/python -m pytest -q tests/test_evaluate_spotter.py tests/test_spotter_speed.py tests/test_spot_credit.py tests/test_spot_actions.py tests/test_spotter_data.py tests/test_match_events.py tests/test_loss_ablation.py tests/test_event_live.py tests/test_model_performance.py tests/test_own_labels.py tests/test_group_d_hooks.py
 ```
 
-**Step 4 on Hadi's PC: the clip.** It needs the code first: the `git fetch`, `git switch` and `git cherry-pick` lines below. Then, with the half the demo shows and a start where 10 minutes of mostly wide-camera play follow:
-
-```
-cd PitchProfile
-.\.venv\Scripts\python.exe scripts\own_labels.py clip --dataset <the half's folder name under data\datasets> --start 12:00 --length 10:00
-```
-
-It writes `.runtime\<dataset>_clip_720s.mp4` (720p at most, no sound) and prints the matching `check` command. Send the clip, the dataset id and the start.
-
 **On Hadi's PC, steps 6–10.** He takes the code commits only, not the README ones, because `main` keeps its own README. The installer adds the four hook lines (section 4, "Connecting the pages"), which he commits on the same branch. The short checks go first and the overnight training goes last, with nothing else on the GPU while timing:
 
 ```
 git fetch origin
 git switch -c hasif-groupd origin/main
-git cherry-pick 24b34ab f50f8ec 8da14ad e62fa33 5f956d2 dc4f878 cbc0c1a b26e725 3af4de3 8ecef46 35b4036 e3797ec 0f31705 ea8d21f 53910cb
+git cherry-pick 24b34ab f50f8ec 8da14ad e62fa33 5f956d2 dc4f878 cbc0c1a b26e725 3af4de3 8ecef46 35b4036 e3797ec 0f31705 ea8d21f 53910cb 4a2c2be
 cd PitchProfile
 .\.venv\Scripts\python.exe scripts\install_group_d_hooks.py
 git add football_profiler/app.py static/index.html
@@ -413,12 +409,16 @@ git commit -m "Connect Group D's live model view and model performance page"
 .\.venv\Scripts\python.exe scripts\run_loss_ablation.py
 ```
 
-After the labels are pushed (step 5), he cherry-picks the labels commit, then:
+When Aamir's row is merged too, its line goes in `static/index.html` after `<script src="/static/event_live.js"></script>`: `<script src="/static/identity_live.js"></script>`. It must come after that line, because it adds its row as soon as it loads.
+
+Then, after the runs above (the labels are already in `4a2c2be`):
 
 ```
-.\.venv\Scripts\python.exe scripts\own_labels.py check --dataset <dataset> --labels labels\own_labels.csv --clip-start 12:00 --clip-length 10:00
+.\.venv\Scripts\python.exe scripts\own_labels.py check --dataset sn-20160207-chelsea-manchester-united --labels labels\own_labels.csv --clip-start 15:00 --clip-length 10:00 --sample
 .\.venv\Scripts\python.exe scripts\gather_model_performance.py
 ```
+
+If `check` says a team name is not recognised, the app has no team names for the kits yet: look in the app which kit group (A or B) is Chelsea, then run it again with `--team A=Chelsea --team "B=Manchester United"` (or the other way round).
 
 | Command | Takes | Sends back | Decides |
 |---|---|---|---|
@@ -426,7 +426,7 @@ After the labels are pushed (step 5), he cherry-picks the labels commit, then:
 | `measure_shot_credit.py throwinline`, then `current` | no GPU; `current` must run second, as it puts the data back | `evidence/identity_footpass_variant_throwinline.json` and `..._current.json` | C4b: on if throw-ins credited to the right player go up and the share right when credited does not drop |
 | `check_spotter_changes.py` | about 30 min, GPU | `evidence/spotter_changes.json` | C5a: the score change must be 0 (or below 0.001). C5b: on if mean AP moves less than about 0.005 on both sets, otherwise the team decides. C6: on if a look-back beats the spotter's own throw-in team on both sets. |
 | `run_loss_ablation.py` | about 7–8 h, GPU (leave overnight) | `evidence/loss_ablation.json` | C3 result |
-| `own_labels.py check` | seconds, no GPU | `evidence/own_labels_clip.json` | C9 score |
+| `own_labels.py check ... --sample` | seconds, no GPU | `evidence/own_labels_clip.json` | C9 score: found, right team, right player |
 | `gather_model_performance.py` | seconds, no GPU | `evidence/model_performance.json`: every number above in one file, with each switch's verdict | All the tables |
 
 **Step 10, the final merge on Hadi's PC.** He first cherry-picks any final code commit (the switches turned on), then:
@@ -460,4 +460,5 @@ Then he analyses one match in the app and checks that the event counts look norm
 | `0f31705` | C8: model performance page, and `gather_model_performance.py` |
 | `ea8d21f` | C7, C8: `install_group_d_hooks.py`, which adds the four hook lines on `main` |
 | `53910cb` | C9: cut, label and score our own clip (`own_labels.py`), with an empty sheet |
+| `4a2c2be` | C9: the labelled sheet (31 actions); `--sample`, team names as the app shows them, `drive` and `free_kick` matched |
 | README commits | These notes (not copied to `main`) |
