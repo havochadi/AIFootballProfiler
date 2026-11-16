@@ -129,7 +129,8 @@ function perfOwnLabels(d){
       perfBar('Found',a.found,PERF_GREY,{text:perfPct(a.found),note:a.precision!=null?`precision ${perfPct(a.precision)}`:''})+
       perfBar('Right team',a.team_right_when_found,PERF_TEAL,{text:perfPct(a.team_right_when_found)})+
       perfBar('Right player',a.right_player,PERF_LIME,{text:perfPct(a.right_player),note:a.labels_with_jersey?`of ${a.labels_with_jersey} with a readable number`:''})+'</div></div>').join('');
-  return perfCard('Against our own labels',`${esc(o.title||o.dataset)}: ${o.overall.labels} actions we labelled ourselves, matched within ${o.tolerance_s} s. "Right team" and "right player" are shares of the ones found.`,body);
+  const sample=o.sample?' The sheet holds the actions we could see clearly, not every action, so precision is not measured.':'';
+  return perfCard('Against our own labels',`${esc(o.title||o.dataset)}: ${o.overall.labels} actions we labelled ourselves, matched within ${o.tolerance_s} s. "Right team" and "right player" are shares of the ones found.${sample}`,body);
 }
 
 function perfChanges(d){

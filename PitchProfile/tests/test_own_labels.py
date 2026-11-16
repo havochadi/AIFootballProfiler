@@ -30,7 +30,31 @@ def test_times_actions_teams_and_numbers_are_read_leniently():
         OL.action_of('goal kick')
     assert OL.team_of('beta', TEAMS) == 'B' and OL.team_of('a', TEAMS) == 'A'
     assert OL.team_of('unknown', TEAMS) is None and OL.team_of('Gamma', TEAMS) is None
+    assert OL.team_of('Man Utd', {'A': {'Chelsea'}, 'B': {'Team B', 'Manchester United'}}) == 'B'
+    assert OL.team_of('Chelsea FC', {'A': {'Chelsea'}}) == 'A'
     assert OL.jersey_of('#10') == 10 and OL.jersey_of('?') is None and OL.jersey_of('') is None
+
+
+def test_video_model_drives_and_free_kicks_count_as_carries_and_passes():
+    labels = [{'time_s': 5.0, 'action': 'carry'}, {'time_s': 9.0, 'action': 'pass'}]
+    pairs, used = OL.match(labels, [{'type': 'drive', 'time_s': 5.3}, {'type': 'free_kick', 'time_s': 8.8}])
+    assert [e['type'] for _, e in pairs] == ['drive', 'free_kick'] and used == {0: 'carry', 1: 'pass'}
+
+
+def test_team_names_come_from_the_kits_confirmed_in_the_app(isolated_data):
+    from football_profiler import match_context as MC
+    whole = {'id': 'sn-x', 'halves': ['sn-x-h1', 'sn-x-h2'], 'teams': {'A': {'name': 'Team A'}, 'B': {'name': 'Team B'}}}
+    half = {'id': 'sn-x-h1', 'match_id': 'soccernet:england_epl/2015-2016/x', 'half': 1}
+    S.write_json(S.dataset_dir('sn-x-h1', create=True) / 'manifest.json', half)
+    assert OL.team_names(whole) == {'A': {'Team A'}, 'B': {'Team B'}}
+    S.write_json(MC.cache_path(half), {'event_id': '1', 'teams': [{'id': '363', 'name': 'Chelsea', 'players': []},
+                                                                  {'id': '360', 'name': 'Manchester United', 'players': []}]})
+    MC.bind_teams(half, {'A': '360', 'B': '363'}, 'reviewer')       # the whole match follows its first half's kits
+    names = OL.team_names(whole, ['B=The Blues'])
+    assert names == {'A': {'Team A', 'Manchester United'}, 'B': {'Team B', 'Chelsea', 'The Blues'}}
+    assert OL.team_of('Man United', names) == 'A' and OL.team_of('the blues', names) == 'B'
+    with pytest.raises(SystemExit):
+        OL.team_names(whole, ['C=Nobody'])
 
 
 def test_clip_start_moves_labels_onto_the_video_clock(tmp_path):
@@ -97,7 +121,13 @@ def test_check_writes_a_report_the_performance_page_reads(isolated_data, tmp_pat
     report = S.read_json(evidence / 'own_labels_demo.json')
     assert report['window_s'] == [600.0, 660.0] and report['overall']['found'] == .667
     assert report['actions']['throw-in']['right_player'] == 1.0
-    assert MPF.gather(evidence)['own_labels']['labels_file'] == 'clip.csv'
+    assert MPF.gather(evidence)['own_labels']['labels_file'] == 'clip.csv' and report['sample'] is False
+    monkeypatch.setattr(sys, 'argv', [*sys.argv, '--sample', '--tag', 'sample'])
+    OL.main()
+    sample = S.read_json(evidence / 'own_labels_sample.json')
+    assert sample['sample'] is True and sample['overall']['found'] == .667
+    assert sample['overall']['precision'] is None and sample['overall']['events_in_clip'] == 2
+    assert 'Precision not reported' in capsys.readouterr().out
 
 
 def test_template_never_overwrites(tmp_path, monkeypatch):
