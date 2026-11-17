@@ -16,9 +16,11 @@ from . import storage as S
 from . import features as F
 from . import taxonomy as T
 from .match_api import router as match_router
+from .event_live import router as event_live_router
 
 app=FastAPI(title="PitchProfile",version="0.1.0")
 app.include_router(match_router)
+app.include_router(event_live_router)
 jobs={};jobs_lock=threading.Lock();pool=ThreadPoolExecutor(max_workers=1)
 STATIC=S.ROOT/"static"
 
