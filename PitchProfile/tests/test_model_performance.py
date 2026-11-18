@@ -83,6 +83,13 @@ def test_decision_rules_say_no_when_the_numbers_say_no(tmp_path):
     assert c['C5a']['verdict'].startswith('scores changed')
     assert c['C5b']['verdict'].startswith('team decides')
     assert c['C6']['verdict'] == 'leave off'
+    hard['mean_average_precision'] = .63                                           # plain labels clearly ahead on one set
+    S.write_json(tmp_path / 'action_spotter_footpass_val_tdeed_ablation_hard.json', hard)
+    c = {x['id']: x for x in MPF.gather(tmp_path)['changes']}
+    assert c['C3']['verdict'] == 'no gain from the trick: plain labels did as well or better'
+    S.write_json(tmp_path / 'action_spotter_bas_test_tdeed_ablation_hard.json', spotter_report(.61, {'PASS': (500, .9)}))
+    c = {x['id']: x for x in MPF.gather(tmp_path)['changes']}
+    assert c['C3']['verdict'] == 'mixed: see the table'                          # each version clearly ahead on one set
 
 
 def test_nothing_measured_still_lists_the_changes(tmp_path):

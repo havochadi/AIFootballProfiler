@@ -139,7 +139,9 @@ def changes(g):
         gaps = [s['mean_average_precision']['tdeed_ablation_partial'] - s['mean_average_precision']['tdeed_ablation_hard']
                 for s in have]
         verdict = ('the trick helps' if all(x >= .01 for x in gaps) else
-                   'too close to call with one run each' if all(abs(x) < .01 for x in gaps) else 'mixed: see the table')
+                   'too close to call with one run each' if all(abs(x) < .01 for x in gaps) else
+                   'no gain from the trick: plain labels did as well or better' if all(x < .01 for x in gaps) else
+                   'mixed: see the table')
         c3.update(result='; '.join(parts), state='measured', verdict=verdict)
     else:
         c3.update(result='Waiting for the overnight training run', state='waiting')
