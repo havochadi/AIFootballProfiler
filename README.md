@@ -2,7 +2,13 @@
 
 Owner: Hasif. This branch (`dev-hasif`) holds only the Group D files. The full project is on `main`.
 
-**Where we are (17 Nov).** The six changes of 10 Nov (C1–C6) are done and wait for one round of runs on Hadi's PC. After the profs' feedback on 12 Nov, three more were added (C7–C9): a live model view under the match video, a model performance page, and our own labelled clip to score the app against. All three are done: C7 and C8 are coded and tested, and C9's clip (10 minutes of the demo match) is labelled, 31 actions. Its score comes from one command on Hadi's PC. All 16 code commits apply cleanly onto the latest `main` in a practice merge, and every test still passes (section 6). Group D's part is finished apart from Hadi's runs and the merge.
+**Where we are (18 Nov).** All nine changes are done and measured. On 17 Nov Hadi put the 16 code commits onto `main` as branch `hasif-groupd` (no conflicts), ran every check on his RTX 3090, and checked both new pages on the Chelsea v Manchester United demo match. In short:
+- Read-ahead (C5a) stays on: the spotter is 1.45 times faster, with identical scores.
+- The training trick (C3) gave no gain: training without it did as well or better. Our model's gain over the public one came from fine-tuning on more games.
+- The touchline throw-in rule (C4b) named more throw-ins right but got more of them wrong, and the last-touch throw-in team (C6) was less accurate than the spotter's own call, so both stay off. Half overlap (C5b) is 2.4 times faster but moves the scores both ways, so it stays off too.
+- Against our own labelled clip (C9), the app finds 61% of the actions and gives 89% of those the right team, but names the right player for only 1 of 17.
+
+Two last code commits remain for Hadi to take before he merges into `main`: one makes a test pass on Windows, and the other words the C3 verdict plainly (section 8).
 
 **Feedback of 12 Nov, and where it went:**
 
@@ -25,7 +31,7 @@ Owner: Hasif. This branch (`dev-hasif`) holds only the Group D files. The full p
 | AP / mAP | One score from 0 to 1 for how well the spotter finds an action type (1 = perfect). mAP = the average over all action types. |
 | Held-out games | Games the model never trained on. Used only for testing, so the score is fair. |
 | Partial-label loss | Our training trick. A FOOTPASS "Pass" could be a pass, a high pass or a free kick. Instead of forcing one guess, we tell the model "any of these is fine". |
-| Ablation | Training once with the trick and once without it, to prove the trick itself helped |
+| Ablation | Training once with the trick and once without it, to test whether the trick itself helped |
 | Clip overlap | The spotter looks at 8-second clips. Each new clip starts 2 s after the last, so they overlap by three quarters and each frame is looked at 4 times. |
 | Switch | A setting that is off by default. It is turned on only after Hadi's numbers show it helps. |
 | Cherry-pick | Copying one commit from this branch onto `main` |
@@ -94,15 +100,15 @@ Honest labels: not every change is an improvement. Some fix bugs, some clean up,
 |---|---|---|---|---|---|---|
 | C1 | Tackle leak | bug fix | If the spotter didn't run, a tackle rule that is only 6–14% right fed the stats | That rule never feeds the app | on | done |
 | C2 | Tidy-ups | clean-up | One function written twice; one function nobody used | Both cleaned up; nothing behaves differently | on | done |
-| C3 | Training comparison | experiment | No proof the partial-label loss itself helped | One command trains with and without it and compares | n/a | needs Hadi's overnight run |
-| C4a | Why no player | diagnostic | 1 in 4 spotted passes and carries get no player, with no record of why | Every uncredited action says why | on | done; Hadi counts the reasons |
-| C4b | Throw-ins by the touchline | possible improvement | Throw-ins credited worst (6.2% right player) | The one teammate on the touchline gets it | **switch, off** | Hadi measures |
-| C5a | Read the video ahead | speed-up | Video reading and the model took turns | They run at the same time; results identical | on | Hadi times it |
-| C5b | Half clip overlap | speed-up | Each frame looked at 4 times | 2 times: about half the model's work | **switch, off** | Hadi checks speed and accuracy |
-| C6 | Throw-in team from the last touch | possible improvement | Throw-in team from the spotter's guess | The team that did not touch the ball last | **switch, off** | Hadi measures |
-| C7 | Live model view | new feature (feedback) | Nothing showed which model made an event, or why it got no player | Under the video: each event near the playhead with its model, score and how the player was picked or why not | on, once the hooks are in | done; Hadi checks it on a real match |
-| C8 | Model performance page | new feature (feedback) | Scores only in report files on Hadi's PC | One page: model versions side by side, each action, crediting, speed, own labels, C1–C6 before and after | on, once the hooks are in | done; fills in as Hadi's runs finish |
-| C9 | Our own labelled clip | dataset (feedback) | Only public labels | 10 minutes of the demo match labelled by us (31 actions), and the app scored against it | n/a | labelled; score waits for Hadi's run |
+| C3 | Training comparison | experiment | No proof the partial-label loss itself helped | One command trains with and without it and compares | n/a | measured: no gain from the trick |
+| C4a | Why no player | diagnostic | 1 in 4 spotted passes and carries get no player, with no record of why | Every uncredited action says why | on | done; measured |
+| C4b | Throw-ins by the touchline | possible improvement | Throw-ins credited worst (6.2% right player) | The one teammate on the touchline gets it | **switch, off** | measured: leave off |
+| C5a | Read the video ahead | speed-up | Video reading and the model took turns | They run at the same time; results identical | on | measured: 1.45 times faster, identical results |
+| C5b | Half clip overlap | speed-up | Each frame looked at 4 times | 2 times: about half the model's work | **switch, off** | measured: 2.4 times faster, scores move both ways; off |
+| C6 | Throw-in team from the last touch | possible improvement | Throw-in team from the spotter's guess | The team that did not touch the ball last | **switch, off** | measured: leave off |
+| C7 | Live model view | new feature (feedback) | Nothing showed which model made an event, or why it got no player | Under the video: each event near the playhead with its model, score and how the player was picked or why not | on, once the hooks are in | done; checked on the demo match |
+| C8 | Model performance page | new feature (feedback) | Scores only in report files on Hadi's PC | One page: model versions side by side, each action, crediting, speed, own labels, C1–C6 before and after | on, once the hooks are in | done; filled with Hadi's runs |
+| C9 | Our own labelled clip | dataset (feedback) | Only public labels | 10 minutes of the demo match labelled by us (31 actions), and the app scored against it | n/a | done: 61% found, right player 1 of 17 |
 
 ## 4. Each change in detail
 
@@ -135,7 +141,7 @@ flowchart LR
 
 Nothing behaves differently. **Tested by** a new test that checks `available()` in three cases, and by all tests still passing after the removal.
 
-### C3. Proving the training trick works (experiment, needs Hadi's overnight run)
+### C3. Testing the training trick (experiment, measured: no gain)
 
 **Why it matters.** The "Model Development: Excellent" row of the rubric asks for a "novel training strategy (loss functions…)", and the partial-label loss is ours. Fine-tuning raised FOOTPASS mAP from 0.478 to 0.604. But that gain could come just from the extra games, not from the trick. The only way to know is to train again *without* the trick and compare.
 
@@ -151,20 +157,22 @@ Nothing behaves differently. **Tested by** a new test that checks `available()` 
 
 `scripts/run_loss_ablation.py` trains both versions with the exact settings of our real model, scores both on held-out games, and writes one table to `evidence/loss_ablation.json`. Both versions are trained fresh, so the only difference between them is the trick. It can never overwrite our real model.
 
-**Result table (filled in after Hadi's run):**
+**Result (Hadi's run, 17 Nov):**
 
 | Model | FOOTPASS mAP | BAS mAP |
 |---|---|---|
 | Public model, no training | 0.478 | 0.606 |
 | Our model (with the trick) | 0.604 | 0.628 |
-| Retrained with the trick | waiting | waiting |
-| Retrained without the trick | waiting | waiting |
+| Retrained with the trick | 0.597 | 0.645 |
+| Retrained without the trick | 0.628 | 0.636 |
 
-**How to read it.** Compare the two "retrained" rows:
-- With the trick ahead by a few hundredths on both sets: the trick works, and that is the claim for the slides.
-- Under about 0.01 apart: too close to call with one run each. We say the gain came mostly from the extra data.
+**How to read it.** Compare the two "retrained" rows. The rule set before the run: the trick works only if it is ahead by about 0.01 or more on both sets, and gaps under 0.01 are too close to call with one run each. Retraining with the trick, the same training as our real model, landed 0.007 from it on FOOTPASS (0.597 against 0.604) and 0.017 on BAS (0.645 against 0.628). That is how far two runs of the same training can differ.
 
-### C4. Crediting the right player (C4a diagnostic, done; C4b switch, Hadi measures)
+**What it shows.** No gain from the trick. Without it, FOOTPASS is 0.031 higher; with it, BAS is 0.009 higher, which is inside the noise. Per action on FOOTPASS, plain labels did better on crosses (0.763 against 0.665), shots (0.664 against 0.587) and headers (0.668 against 0.633), and the trick was ahead on no action by more than 0.003. The trick helped only where it was aimed: on BAS, in the classes FOOTPASS has no label for, high passes (0.859 against 0.813) and balls going out (0.525 against 0.478). So our model's gain over the public one (0.478 to 0.604) came from fine-tuning on more games, not from the loss.
+
+**What we do with it.** Our real model stays in the app. Every other number here was measured with it, and swapping models a week before the demo would mean measuring everything again. The plain-label model scored 0.024 higher on FOOTPASS and about the same on BAS, so it is the first thing to try with more time.
+
+### C4. Crediting the right player (C4a diagnostic, done; C4b switch, measured: off)
 
 **The problem.** The spotter finds most actions, but picking the player is weak:
 
@@ -181,14 +189,14 @@ Even with perfect names, only 59% of passes land on the right player, and about 
 
 **C4a. Every uncredited action now says why:**
 
-| Reason | Meaning | Share of uncredited passes and carries (Hadi, Sept) |
-|---|---|---|
-| `no ball` | ball not found near that moment | 38% |
-| `ball away from players` | ball found, but not on any player of that team | 36% |
-| `team not on screen` | no player of that team visible | 22% |
-| `no team` | the attack direction is unknown, so "left team" can't be matched to a team | rest |
+| Reason | Meaning | Uncredited passes | Uncredited carries |
+|---|---|---|---|
+| `no ball` | ball not found near that moment | 34% | 34% |
+| `ball away from players` | ball found, but not on any player of that team | 40% | 46% |
+| `team not on screen` | no player of that team visible | 27% | 20% |
+| `no team` | the attack direction is unknown, so "left team" can't be matched to a team | 0% | 0% |
 
-`scripts/credit_reasons.py` adds these up per action type, with no GPU.
+`scripts/credit_reasons.py` adds these up per action type, with no GPU. Measured on 17 Nov over 6 analysed halves: 30% of spotted passes and 32% of carries get no player. Throw-ins are worst: 84% get no player, mostly because the throwing team is off screen (38% of throw-in spots) or the ball is not seen (28%).
 
 **C4b. Throw-ins by the touchline (switch, off).** At a throw-in, the ball is above the thrower's head, so its spot on the pitch lands metres away. So crediting by the ball fails. The thrower himself is easy to find: he stands on the touchline.
 
@@ -205,9 +213,11 @@ flowchart TD
 
 It credits only when exactly one player of that team stands within 1.5 m inside or 3 m behind a touchline. It only fills gaps: a throw-in already credited from the ball keeps its player.
 
-### C5. A faster spotter (C5a on, C5b switch)
+**Result (17 Nov): leave off.** On FOOTPASS held-out games, throw-ins credited to the right player rose from 6.2% to 10.3%, but the share right when credited fell from 67% to 56%. The rule credits twice as many throw-ins (16% to 32% of spots across the 6 halves) and gets more of them wrong. The rule set before the run asked for both to improve, so it stays off.
 
-**Why it matters.** The "Model Deployment: Excellent" row asks for "optimized models". The spotter takes about 4.5 minutes per half on Hadi's 3090.
+### C5. A faster spotter (C5a on; C5b switch, off)
+
+**Why it matters.** The "Model Deployment: Excellent" row asks for "optimized models". Timed on Hadi's 3090 (5 minutes of Chelsea v Burnley, scaled to a 45-minute half), the spotter took 3.2 minutes per half before these changes.
 
 **C5a. Read the video ahead (on).** Before, the code read some frames, then waited while the GPU worked, then read more. Now a background thread keeps reading up to 256 frames ahead (about 270 MB of memory), so the two run at the same time. The frames and their order are exactly the same, so the results are identical. This was checked on the Mac by running the old code and the new code on the same test video with a stand-in model: identical scores, identical spots, identical progress messages.
 
@@ -217,14 +227,16 @@ It credits only when exactly one player of that team stands within 1.5 m inside 
 |---|---|---|---|
 | Video reading and model | take turns | at the same time | at the same time |
 | Times each frame is looked at | 4 | 4 | 2 |
-| Results | n/a | identical | slightly different, measured |
-| Time per half | about 4.5 min | waiting | waiting |
+| Results | n/a | identical (largest score change 0) | mean AP −0.012 on FOOTPASS, +0.013 on BAS |
+| Time per half | 3.2 min | 2.2 min (1.45 times faster) | 1.4 min (2.4 times faster) |
 
-How much faster depends on how much of the 4.5 minutes is reading the video. One timing run on Hadi's PC tells us.
+**Result (17 Nov).** C5a stays on: 1.45 times faster, with the same scores and the same 858 spots. C5b would make the spotter 2.4 times faster, but its accuracy moved both ways: −0.012 mean AP on FOOTPASS (throw-ins −0.041, crosses −0.031) and +0.013 on BAS. That is more than the 0.005 the rule allows, so it stays off. At 2.2 minutes per half, speed does not hold the demo back. If it ever does, it is one switch: `PITCHPROFILE_SPOTTER_HALF_OVERLAP=1`.
 
 ### C6. Throw-in team from the last touch (switch, off)
 
 By the laws of the game, the throw goes to the team that did **not** touch the ball last. With C6, a throw-in's team is the opposite of the last confident touch before it, otherwise the spotter's own guess. The ball is often out of play for 10–30 s before the throw, so the look-back is 30 s (the tackle rule uses 4 s). `evaluate_spotter_labelled.py` now reports throw-in team accuracy for 10, 20 and 30 s look-backs, from Hadi's saved spotter output.
+
+**Result (17 Nov): leave off.** The spotter's own throw-in team was right more often than any look-back: 74% against 70% on FOOTPASS for the best look-back (4 s), and 90% against 86% on BAS. Longer look-backs did worse (30 s: 50% and 65%).
 
 ### C7. Live model view (new, from BJ's feedback)
 
@@ -306,6 +318,22 @@ Rows are sorted by `order`, so identity (30) sits above events (40). They redraw
 
 **Scoring.** `own_labels.py check` matches each label to the nearest event of the same action within 1 s, using the events the statistics count (rule events, and video-model events above their threshold), each event once. The video model's `drive` counts as a carry and its `free_kick` as a pass. Per action and overall it reports: found, the right team when found, and the right player (team and shirt number) among labels with a readable number, plus precision against our events inside the clip when the sheet holds every action (without `--sample`). Team names are matched to kit groups through the fixture team each kit group was confirmed as in the app (a whole match uses its first half's); if the app has none, `--team A=<name> --team B=<name>` sets them. The report goes to `evidence/own_labels_<tag>.json`, and the C8 page shows the newest.
 
+**Score (Hadi's PC, 17 Nov, the app's own events for the demo match):**
+
+| Action | Labels | Found | Right team, when found | Right player |
+|---|---|---|---|---|
+| All | 31 | 61% (19) | 89% (17 of 19) | 1 of 17 with a number |
+| Pass | 14 | 79% (11) | 91% (10 of 11) | 1 of 7 |
+| Cross | 5 | 40% (2) | 2 of 2 | 0 of 1 |
+| Header | 4 | 75% (3) | 3 of 3 | 0 of 2 |
+| Throw-in | 2 | 1 | 1 of 1 | 0 of 2 |
+| Shot | 1 | 1 | 1 of 1 | 0 of 1 |
+| Block | 1 | 1 | 0 of 1 | 0 of 1 |
+| Tackle | 2 | 0 | n/a | 0 of 1 |
+| Clearance | 2 | 0 | n/a | 0 of 2 |
+
+**What it shows.** The app finds most passes and headers at the right moment and nearly always gives them the right team, as on the public labels. Naming the player is the weak point here too, and more so than on FOOTPASS (34% of passes). Only 6 of the 19 found actions got a player at all, and 1 of them was the right one (Willian's pass at 19:31.9). The reasons are the ones C4a counts: in broadcast footage the ball is often not seen at the moment of the action. Tackles are not found because the spotter's tackle scores stay under its threshold, and C1 keeps the weak tackle rule out. Clearances are not found because the app made no clearance events in these 10 minutes. With 31 labels, 17 of them with a number, these are rough figures.
+
 ### Connecting the pages (four lines on `main`)
 
 The new pages are Group D files, but the app finds them through four lines in two shared files that only exist on `main`. `scripts/install_group_d_hooks.py` adds them once. Running it again changes nothing. If a line it looks for has moved, it stops without changing anything; then the lines go in by hand:
@@ -356,7 +384,9 @@ The new pages are Group D files, but the app finds them through four lines in tw
 | Shots on held-out games | precision 0.68, recall 0.74 |
 | Event rules with perfect positions (SoccerTrack) | passes: precision 0.69, recall 0.70 |
 | Passes per player against the true counts | correlation r = 0.89 |
-| Still to come | C3 table, C4 reasons and throw-in numbers, C5 speed and accuracy, C6 throw-in team, all from Hadi's runs; C7 and C8 on a real match; C9 score |
+| Hadi's merge onto `main` (17 Nov, his PC) | All 16 code commits applied with no conflicts; the installer added the four hook lines. Tests: 186 passed, including the GPU and data ones. The 1 failure was in the hook test itself, which stripped lines with LF endings on a Windows (CRLF) checkout and read UTF-8 files with Windows' default encoding. Fixed in `52bdfce` and checked on a CRLF copy with a non-UTF-8 default encoding: the old test fails there, the new one passes. |
+| C7 and C8 on the demo match (Hadi, 17 Nov) | Live model view follows the video, its chips and ball line work, clicking a time jumps the video, "This player only" keeps one player's events. Model performance page: every section filled, no report missing. Both new routes return 200 and there are no new console errors. |
+| Hadi's runs (17 Nov) | All measured, results in section 4 under each change and in `evidence/model_performance.json` |
 
 ## 7. Steps to finish
 
@@ -367,15 +397,15 @@ The new pages are Group D files, but the app finds them through four lines in tw
 | 3 | C7–C9 coded and tested (profs' feedback) | Hasif | Done |
 | 4 | Cut the 10-minute clip (15:00–25:00 of the demo match's whole-match video) | Hasif | Done |
 | 5 | Label the clip into `labels/own_labels.csv` (31 actions), commit and push | Hasif | Done |
-| 6 | Make branch `hasif-groupd` with the 16 code commits, connect the pages, run the tests | Hadi | **To do** |
-| 7 | Short checks, no GPU: crediting reasons and C4b | Hadi's PC | Waiting |
-| 8 | Spotter check, about 30 min of GPU: C5 speed and accuracy, C6 | Hadi's PC | Waiting |
-| 9 | Overnight: training comparison (C3) | Hadi's PC | Waiting |
-| 10 | Score the app against our labels, gather all scores, send back `evidence/model_performance.json` | Hadi's PC | After 6–9 |
-| 11 | Fill the result tables; switch on whatever won (one line each) | Hasif | After 10 |
-| 12 | Final commit and push | Hasif | After 11 |
+| 6 | Make branch `hasif-groupd` with the 16 code commits, connect the pages, run the tests | Hadi | Done (17 Nov) |
+| 7 | Short checks, no GPU: crediting reasons and C4b | Hadi's PC | Done |
+| 8 | Spotter check, about 30 min of GPU: C5 speed and accuracy, C6 | Hadi's PC | Done |
+| 9 | Overnight: training comparison (C3) | Hadi's PC | Done |
+| 10 | Score the app against our labels, gather all scores, send back `evidence/model_performance.json` | Hadi's PC | Done |
+| 11 | Fill the result tables; switch on whatever won | Hasif | Done: no switch won, so read-ahead stays on and the rest stay off |
+| 12 | Final commits (`52bdfce` Windows test fix, `c76bc7d` C3 verdict) and push | Hasif | Done |
 | 13 | Hadi cherry-picks the final commit(s), merges `hasif-groupd` into `main`, runs all tests, and checks both pages on one real match | Hadi | End |
-| 14 | Aamir's identity row (C7) is in (`37159c4` on `aamir/player-identity`); his section on the C8 page is still to come | Aamir | Row done |
+| 14 | Aamir's identity row (C7) is in (`37159c4` on `aamir/player-identity`), not yet merged by Hadi; his section on the C8 page is still to come | Aamir | Row done |
 | **Done** | **Group D code finished** | | |
 | 15 | Slides, poster box, demo minute, Q&A, backup video | Hasif | 18–20 Nov |
 
@@ -429,9 +459,12 @@ If `check` says a team name is not recognised, the app has no team names for the
 | `own_labels.py check ... --sample` | seconds, no GPU | `evidence/own_labels_clip.json` | C9 score: found, right team, right player |
 | `gather_model_performance.py` | seconds, no GPU | `evidence/model_performance.json`: every number above in one file, with each switch's verdict | All the tables |
 
-**Step 10, the final merge on Hadi's PC.** He first cherry-picks any final code commit (the switches turned on), then:
+**Step 13, the final merge on Hadi's PC.** On `hasif-groupd`, he takes the two last code commits, then merges:
 
 ```
+git switch hasif-groupd
+git fetch https://github.com/havochadi/CVDL_FootballProfiler.git hasif/events
+git cherry-pick 52bdfce c76bc7d
 git switch main
 git merge hasif-groupd
 cd PitchProfile
@@ -461,4 +494,6 @@ Then he analyses one match in the app and checks that the event counts look norm
 | `ea8d21f` | C7, C8: `install_group_d_hooks.py`, which adds the four hook lines on `main` |
 | `53910cb` | C9: cut, label and score our own clip (`own_labels.py`), with an empty sheet |
 | `4a2c2be` | C9: the labelled sheet (31 actions); `--sample`, team names as the app shows them, `drive` and `free_kick` matched |
+| `52bdfce` | C7, C8: the hook test reads `main`'s files the same way on a Windows (CRLF) checkout, and always as UTF-8 |
+| `c76bc7d` | C3: the verdict says plainly when training without the trick did as well or better |
 | README commits | These notes (not copied to `main`) |
