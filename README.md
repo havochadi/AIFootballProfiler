@@ -404,7 +404,7 @@ The new pages are Group D files, but the app finds them through four lines in tw
 | 10 | Score the app against our labels, gather all scores, send back `evidence/model_performance.json` | Hadi's PC | Done |
 | 11 | Fill the result tables; switch on whatever won | Hasif | Done: no switch won, so read-ahead stays on and the rest stay off |
 | 12 | Final commits (`52bdfce` Windows test fix, `c76bc7d` C3 verdict) and push | Hasif | Done |
-| 13 | Hadi cherry-picks the final commit(s), merges `hasif-groupd` into `main`, runs all tests, and checks both pages on one real match | Hadi | End |
+| 13 | Hadi cherry-picks the final commit(s), merges `hasif-groupd` into `main`, runs all tests, and checks both pages on one real match | Hadi | **To do** |
 | 14 | Aamir's identity row (C7) is in (`37159c4` on `aamir/player-identity`), not yet merged by Hadi; his section on the C8 page is still to come | Aamir | Row done |
 | **Done** | **Group D code finished** | | |
 | 15 | Slides, poster box, demo minute, Q&A, backup video | Hasif | 18–20 Nov |
@@ -469,9 +469,10 @@ git switch main
 git merge hasif-groupd
 cd PitchProfile
 .\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe scripts\gather_model_performance.py
 ```
 
-Then he analyses one match in the app and checks that the event counts look normal, that the live model view follows the video, and that the Model performance page shows the numbers from his runs. The commits keep Hasif as author.
+The last line rewrites `evidence/model_performance.json` with the new C3 verdict; the page itself picks it up after a server restart. Then he analyses one match in the app and checks that the event counts look normal, that the live model view follows the video, and that the Model performance page shows the numbers from his runs. The commits keep Hasif as author.
 
 ## 9. Commits on this branch
 
